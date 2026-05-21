@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv middlewares/auth.middleware.ts middlewares/auth.middleware.bak)",
+      "Bash(mv shared/middlewares/rate-limit.middleware.ts shared/middlewares/rate-limit.middleware.bak)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Read(//c/c/Users/gabri/OneDrive/Documentos/pasta construção/wallet-crypto-main/backend/src/modules/balance/**)",
+      "Read(//c/c/Users/gabri/OneDrive/Documentos/pasta construção/**)"
+    ]
+  }
+}

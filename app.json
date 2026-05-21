@@ -1,0 +1,154 @@
+{
+  "expo": {
+    "name": "Verum crypto",
+    "slug": "wallet-crypto",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/wallet-favicon.png",
+    "scheme": "verumwallet",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.verumcrypto.wallet",
+      "associatedDomains": ["applinks:verumcrypto.com"]
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./public/wallet-favicon.png",
+        "backgroundColor": "#0a0a0a"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.verumcrypto.wallet",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "connect"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "sign"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "browse"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "signTransaction"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "signAllTransactions"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "signMessage"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "verumwallet",
+              "host": "kyc-callback"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "vesting.verumcrypto.com",
+              "pathPrefix": "/callback"
+            }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ]
+    },
+    "web": {
+      "name": "Verum crypto",
+      "shortName": "Verum",
+      "output": "static",
+      "favicon": "./public/wallet-favicon.png",
+      "backgroundColor": "#0a0a0a",
+      "themeColor": "#0a0a0a",
+      "display": "standalone",
+      "orientation": "portrait"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o Verum crypto acesse sua câmera para escanear QR codes.",
+          "microphonePermission": "Permitir que o Verum crypto acesse o microfone."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

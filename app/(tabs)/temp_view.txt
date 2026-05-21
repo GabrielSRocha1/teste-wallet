@@ -1,0 +1,20 @@
+                 <Text style={styles.inputBal}>{t('SALDO:')} {getBal(toToken.symbol)}</Text>
+              </View>
+              <View style={styles.inputRow}>
+                 <TouchableOpacity style={styles.tokenSel} onPress={() => { setModalSide('to'); setIsTokenModalVisible(true); }}>
+                    <Image source={typeof toToken.imageUrl === 'string' ? { uri: toToken.imageUrl } : toToken.imageUrl} style={styles.tokenImg} />
+                    <Text style={styles.tokenSym}>{toToken.symbol}</Text>
+                    <Feather name="chevron-down" size={14} color={V.gold} />
+                 </TouchableOpacity>
+                 <Text 
+                   style={[styles.targetAmt, !toAmount && { color: V.muted }]} 
+                   numberOfLines={1} 
+                   adjustsFontSizeToFit
+                 >
+                   {toAmount || '0.00'}
+                 </Text>
+              </View>
+           </View>
+
+           <View style={styles.priceRow}>
+              <Text style={styles.priceT}>1 {fromToken.symbol} ≈ {((prices[fromToken.symbol] || 0) / (prices[toToken.symbol] || 1)).toFixed(6)} {toToken.symbol}</Text>
