@@ -1230,7 +1230,9 @@ class TransactionService {
 
   // ─── Raydium Swap ────────────────────────────────────────────────────
 
-  private readonly RAYDIUM_COMPUTE_HOST = 'https://api-v3.raydium.io';
+  // Compute e Transaction ambos vivem em transaction-v1.raydium.io.
+  // api-v3.raydium.io serve apenas metadados (tokens, pools) e NÃO tem /compute → retorna 404 HTML.
+  private readonly RAYDIUM_COMPUTE_HOST = 'https://transaction-v1.raydium.io';
   private readonly RAYDIUM_TX_HOST = 'https://transaction-v1.raydium.io';
 
   /**
@@ -1470,12 +1472,25 @@ class TransactionService {
     };
   }
 
-  // ─── Jupiter v6 direto (sem backend) ──────────────────────────────────────
-  // API pública com CORS aberto: api.jup.ag/swap/v1 (mais novo) ou quote-api.jup.ag/v6 (alias).
-  // Mantemos a fee Verum (2%) via platformFeeBps + feeAccount derivado da treasury.
+  // ─── Jupiter Swap v1 (substituiu o v6 legado) ────────────────────────────
+  // Free tier:  https://lite-api.jup.ag/swap/v1   (sem chave, rate-limited)
+  // Pro tier:   https://api.jup.ag/swap/v1        (header x-api-key)
+  // O endpoint quote-api.jup.ag/v6 foi descontinuado (CORS fechado / 410).
+  // A fee Verum (2%) é mantida via platformFeeBps + feeAccount da treasury.
 
-  private readonly JUPITER_QUOTE_URL = 'https://quote-api.jup.ag/v6/quote';
-  private readonly JUPITER_SWAP_URL = 'https://quote-api.jup.ag/v6/swap';
+  private get JUPITER_BASE(): string {
+    const key = process.env.EXPO_PUBLIC_JUPITER_API_KEY;
+    return key ? 'https://api.jup.ag/swap/v1' : 'https://lite-api.jup.ag/swap/v1';
+  }
+
+  private jupiterHeaders(extra?: Record<string, string>): Record<string, string> {
+    const key = process.env.EXPO_PUBLIC_JUPITER_API_KEY;
+    return {
+      Accept: 'application/json',
+      ...(key ? { 'x-api-key': key } : {}),
+      ...extra,
+    };
+  }
 
   async jupiterQuote(params: {
     inputMint: string;
@@ -1485,7 +1500,7 @@ class TransactionService {
     platformFeeBps?: number;
     onlyDirectRoutes?: boolean;
   }): Promise<any> {
-    const url = new URL(this.JUPITER_QUOTE_URL);
+    const url = new URL(`${this.JUPITER_BASE}/quote`);
     url.searchParams.set('inputMint', params.inputMint);
     url.searchParams.set('outputMint', params.outputMint);
     url.searchParams.set('amount', String(params.amount));
@@ -1498,7 +1513,7 @@ class TransactionService {
     }
 
     const res = await fetch(url.toString(), {
-      headers: { Accept: 'application/json' },
+      headers: this.jupiterHeaders(),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
@@ -1525,9 +1540,9 @@ class TransactionService {
       body.feeAccount = params.feeAccount;
     }
 
-    const res = await fetch(this.JUPITER_SWAP_URL, {
+    const res = await fetch(`${this.JUPITER_BASE}/swap`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: this.jupiterHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     });

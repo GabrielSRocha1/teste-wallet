@@ -189,36 +189,50 @@ export default function HomeScreen() {
         setTransactions(mergedTxs);
         
         // --- Sincronizador de Notificações de Recebimento ---
+        // Cobre ambos os casos:
+        //   1) Transferência interna Verum→Verum: o sender já chamou pushToEmail,
+        //      que insere uma notificação com `data->>hash`. Aqui detectamos isso
+        //      via hasNotificationForHash e pulamos pra não duplicar.
+        //   2) Recebimento externo (Phantom/Solflare → Verum): nunca foi notificado,
+        //      então criamos a notificação aqui. Esse caso era o que estava quebrado:
+        //      o guard `!tx.onChain` antigo bloqueava tudo que vinha da blockchain.
         const processedKey = `processed_txs_${user.id}`;
         const storedProcessed = await AsyncStorage.getItem(processedKey);
         const isFirstRun = !storedProcessed;
         const processedSet = new Set(storedProcessed ? JSON.parse(storedProcessed) : []);
         let newProcessed = false;
 
-        // Se houver transação destinada a nós que ainda não estava na nossa base de notificações, alerta!
-        const incomingTxs = mergedTxs.filter((t: any) => 
-          (t.isRecebimento || t.destinatario_id === user.id || t.destinatario_id === 'me') &&
-          t.tipo?.toLowerCase() !== 'swap' && t.tipo?.toLowerCase() !== 'interação'
+        const incomingTxs = mergedTxs.filter((tx: any) =>
+          (tx.isRecebimento || tx.destinatario_id === user.id || tx.destinatario_id === 'me' || tx.tipo === 'Recebimento') &&
+          tx.tipo?.toLowerCase() !== 'swap' && tx.tipo?.toLowerCase() !== 'interação'
         );
+
         for (const tx of incomingTxs) {
-          if (!processedSet.has(tx.id)) {
-            processedSet.add(tx.id);
-            newProcessed = true;
-            
-            if (!isFirstRun && !tx.onChain) {
-              const recvUsdVal = (tx.valor * (prices[tx.moeda] || 0)).toFixed(2);
-              const recvUsdStr = prices[tx.moeda] && recvUsdVal !== "0.00" ? ` (~$ ${recvUsdVal})` : '';
-              await notificationService.pushNotification({
-                type: 'recebimento',
-                title: t('Transferência recebida'),
-                description: t(`Você recebeu ${tx.valor} ${tx.moeda} de um usuário Verum.`),
-                amount: `+${tx.valor}`,
-                currency: `${tx.moeda}${recvUsdStr}`,
-              });
-            }
+          const dedupeKey = tx.hash || tx.id;
+          if (processedSet.has(dedupeKey)) continue;
+          processedSet.add(dedupeKey);
+          newProcessed = true;
+
+          if (isFirstRun) continue; // primeira carga: marca como processado mas não notifica histórico
+
+          // Se já existe notificação com esse hash (ex.: pushToEmail do sender interno), pula
+          if (tx.hash) {
+            const exists = await notificationService.hasNotificationForHash(tx.hash, user.id);
+            if (exists) continue;
           }
+
+          const recvUsdVal = (tx.valor * (prices[tx.moeda] || 0)).toFixed(2);
+          const recvUsdStr = prices[tx.moeda] && recvUsdVal !== "0.00" ? ` (~$ ${recvUsdVal})` : '';
+          await notificationService.pushNotification({
+            type: 'recebimento',
+            title: t('Transferência recebida'),
+            description: t(`Você recebeu ${tx.valor} ${tx.moeda}.`),
+            amount: `+${tx.valor}`,
+            currency: `${tx.moeda}${recvUsdStr}`,
+            data: tx.hash ? { hash: tx.hash } : undefined,
+          });
         }
-        
+
         if (newProcessed || isFirstRun) {
           await AsyncStorage.setItem(processedKey, JSON.stringify(Array.from(processedSet)));
           if (newProcessed) checkUnread();

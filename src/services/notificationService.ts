@@ -26,7 +26,7 @@ function sanitizeAmount(input?: string | null): number | null {
   return Number.isFinite(n) ? Math.abs(n) : null;
 }
 
-export type NotificationType = 'recebimento' | 'pagamento' | 'sucesso' | 'erro' | 'info';
+export type NotificationType = 'recebimento' | 'pagamento' | 'swap' | 'sucesso' | 'erro' | 'info';
 
 export interface Notification {
   id: string;
@@ -175,7 +175,9 @@ class NotificationService {
   }
 
   /**
-   * Envia notificação para o usuário (por padrão, para o usuário logado)
+   * Envia notificação para o usuário (por padrão, para o usuário logado).
+   * `data` é um JSONB opcional — use pra guardar `{ hash }` da tx, permitindo
+   * dedupe contra detecção on-chain (ver hasNotificationForHash).
    */
   async pushNotification(params: {
     userId?: string;
@@ -184,11 +186,12 @@ class NotificationService {
     description: string;
     amount?: string;
     currency?: string;
+    data?: Record<string, unknown>;
   }) {
     try {
       const currentUserId = await this.getUserId();
       const targetUserId = params.userId || currentUserId;
-      
+
       if (targetUserId) {
         // Salvar no Supabase — incluindo o campo 'tipo' para que os filtros funcionem
         await supabase.from('notificacoes').insert({
@@ -199,6 +202,7 @@ class NotificationService {
           valor: sanitizeAmount(params.amount),
           moeda: params.currency,
           lida: false,
+          data: (params.data ?? null) as any,
         });
       }
       
@@ -223,6 +227,7 @@ class NotificationService {
       description: string;
       amount?: string;
       currency?: string;
+      data?: Record<string, unknown>;
     }
   ) {
     try {
@@ -248,6 +253,7 @@ class NotificationService {
           valor: sanitizeAmount(params.amount),
           moeda: params.currency,
           lida: false,
+          data: (params.data ?? null) as any,
         });
       } else {
         console.warn(`[NotificationService] pushToEmail: usuário com email ${targetEmail} não encontrado`);
@@ -260,10 +266,36 @@ class NotificationService {
     }
   }
 
+  /**
+   * Verifica se já existe notificação salva pro hash on-chain dado.
+   * Usado pelo polling on-chain pra evitar duplicar notificação quando o
+   * pushNotification/pushToEmail do remetente já cuidou disso na hora do envio.
+   */
+  async hasNotificationForHash(hash: string, userId?: string): Promise<boolean> {
+    try {
+      const uid = userId ?? (await this.getUserId());
+      if (!uid || !hash) return false;
+      const { count, error } = await supabase
+        .from('notificacoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', uid)
+        .filter('data->>hash', 'eq', hash);
+      if (error) {
+        console.warn('[NotificationService] hasNotificationForHash error:', error.message);
+        return false;
+      }
+      return (count ?? 0) > 0;
+    } catch (e) {
+      console.warn('[NotificationService] hasNotificationForHash exception:', e);
+      return false;
+    }
+  }
+
   // ========== MÉTODOS PRIVADOS ==========
 
   private mapTipoNotificacao(titulo: string, descricao?: string): NotificationType {
     const text = ((titulo || '') + ' ' + (descricao || '')).toLowerCase();
+    if (text.includes('swap') || text.includes('trocou') || text.includes('câmbio') || text.includes('cambio')) return 'swap';
     if (text.includes('recebido') || text.includes('recebeu') || text.includes('recebimento') || text.includes('depositado')) return 'recebimento';
     if (text.includes('enviado') || text.includes('pago') || text.includes('pagamento') || text.includes('transfer')) return 'pagamento';
     if (text.includes('sucesso') || text.includes('ativado') || text.includes('conclu')) return 'sucesso';

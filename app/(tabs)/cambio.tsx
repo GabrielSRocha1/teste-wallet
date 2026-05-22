@@ -17,6 +17,7 @@ import type { RaydiumSwapQuote } from '@/src/services/transactionService';
 import { useSolanaWallet } from '@/src/hooks/useSolanaWallet';
 import { useRealtimeBalances } from '@/src/hooks/useRealtimeBalances';
 import { translateError } from '@/src/utils/error-translator';
+import notificationService from '@/src/services/notificationService';
 
 if (typeof global.Buffer === 'undefined') { global.Buffer = Buffer; }
 
@@ -233,7 +234,7 @@ export default function CambioScreen() {
 
     let jupiterErr: string | null = null;
 
-    // 1. Jupiter v6 direto (sem backend) — quote-api.jup.ag/v6/quote
+    // 1. Jupiter Swap v1 direto (sem backend) — api.jup.ag/swap/v1 (com chave) ou lite-api.jup.ag/swap/v1 (free)
     try {
       console.log(`[Cambio] Buscando cotação Jupiter direto: ${inputMint} -> ${outputMint} (amt: ${amountRaw})`);
       const jq = await transactionService.jupiterQuote({
@@ -422,6 +423,15 @@ export default function CambioScreen() {
           }
         }
 
+        await notificationService.pushNotification({
+          type: 'swap',
+          title: 'Swap realizado',
+          description: `Você trocou ${amt} ${fromToken.symbol} por ${outUi.toFixed(outDecimals > 6 ? 6 : 2)} ${toToken.symbol}.`,
+          amount: `+${outUi.toFixed(outDecimals > 6 ? 6 : 2)}`,
+          currency: toToken.symbol,
+          data: { hash: result.hash, via: 'jupiter', from: fromToken.symbol, to: toToken.symbol },
+        }).catch((e) => console.warn('[Swap] Notif falhou (não-crítico):', e));
+
         // SUCESSO!
         setSwapModalStatus('success');
         setSwapModalMessage(t('Swap concluído com sucesso!'));
@@ -477,6 +487,16 @@ export default function CambioScreen() {
           p_idempotency_key: `swap-${rayResult.signature}`,
         }), 30_000);
 
+        const netOutUi = Math.max(0, outUi - feeUi);
+        await notificationService.pushNotification({
+          type: 'swap',
+          title: 'Swap realizado',
+          description: `Você trocou ${amt} ${fromToken.symbol} por ${netOutUi.toFixed(outDecimals > 6 ? 6 : 2)} ${toToken.symbol}.`,
+          amount: `+${netOutUi.toFixed(outDecimals > 6 ? 6 : 2)}`,
+          currency: toToken.symbol,
+          data: { hash: rayResult.signature, via: 'raydium', from: fromToken.symbol, to: toToken.symbol },
+        }).catch((e) => console.warn('[Swap] Notif falhou (não-crítico):', e));
+
         setSwapModalStatus('success');
         setSwapModalMessage(t('Swap concluído com sucesso!'));
         setTimeout(() => {
@@ -517,6 +537,16 @@ export default function CambioScreen() {
           p_metadata: { dest_mint: toToken.mint, dest_decimals: toToken.decimals },
           p_idempotency_key: `swap-${res.hash}`,
         }), 30_000);
+
+        const internalOutUi = parseFloat(toAmount) || 0;
+        await notificationService.pushNotification({
+          type: 'swap',
+          title: 'Swap realizado',
+          description: `Você trocou ${amt} ${fromToken.symbol} por ${internalOutUi.toFixed(2)} ${toToken.symbol}.`,
+          amount: `+${internalOutUi.toFixed(2)}`,
+          currency: toToken.symbol,
+          data: { hash: res.hash, via: 'internal', from: fromToken.symbol, to: toToken.symbol },
+        }).catch((e) => console.warn('[Swap] Notif falhou (não-crítico):', e));
 
         setSwapModalStatus('success');
         setSwapModalMessage(t('Swap concluído com sucesso!'));

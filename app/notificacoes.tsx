@@ -12,7 +12,7 @@ import { useSettings } from '@/constants/SettingsContext';
 import notificationService from '@/src/services/notificationService';
 import { supabase } from '@/src/services/supabase';
 
-type NotificationType = 'recebimento' | 'pagamento' | 'sucesso' | 'erro' | 'info';
+type NotificationType = 'recebimento' | 'pagamento' | 'swap' | 'sucesso' | 'erro' | 'info';
 
 interface Notification {
   id: string;
@@ -30,6 +30,7 @@ const NOTIFICATIONS_DEFAULT: Notification[] = [];
 const TYPE_CONFIG: Record<NotificationType, { icon: string; color: string; label: string }> = {
   recebimento: { icon: 'arrow-down-left', color: V.success, label: 'Recebido' },
   pagamento: { icon: 'arrow-up-right', color: V.success, label: 'Enviado' },
+  swap: { icon: 'repeat', color: V.gold, label: 'Swap' },
   sucesso: { icon: 'check-circle', color: V.success, label: 'Sucesso' },
   erro: { icon: 'x-circle', color: V.danger, label: 'Erro' },
   info: { icon: 'info', color: V.gold, label: 'Info' },
@@ -80,6 +81,7 @@ export default function NotificacoesScreen() {
   // Mapeamento local como fallback para notificações antigas sem campo 'tipo' no banco
   const mapTypeFromTitle = (title: string, description: string): NotificationType => {
     const text = (title + ' ' + description).toLowerCase();
+    if (text.includes('swap') || text.includes('trocou') || text.includes('câmbio') || text.includes('cambio')) return 'swap';
     if (text.includes('recebido') || text.includes('recebeu') || text.includes('depositado')) return 'recebimento';
     if (text.includes('enviado') || text.includes('pago') || text.includes('transfer')) return 'pagamento';
     if (text.includes('sucesso') || text.includes('ativado') || text.includes('conclu')) return 'sucesso';
@@ -103,6 +105,7 @@ export default function NotificacoesScreen() {
     todas: t('NENHUMA NOTIFICAÇÃO'),
     recebimento: t('Nenhuma notificação de recebimento'),
     pagamento: t('Nenhuma notificação de envio'),
+    swap: t('Nenhum swap registrado'),
     sucesso: t('Nenhuma notificação de sucesso'),
     erro: t('Nenhum erro registrado'),
     info: t('Nenhuma informação'),
@@ -131,6 +134,7 @@ export default function NotificacoesScreen() {
     { key: 'todas', label: t('TODAS') },
     { key: 'recebimento', label: t('RECEBIDOS') },
     { key: 'pagamento', label: t('ENVIADOS') },
+    { key: 'swap', label: t('SWAPS') },
     { key: 'sucesso', label: t('SUCESSO') },
     { key: 'erro', label: t('ERROS') },
   ];

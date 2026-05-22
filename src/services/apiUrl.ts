@@ -28,7 +28,9 @@ export function getApiBaseUrl(): string {
   if (isNonEmpty(envUrl)) return envUrl.trim();
 
   if (Platform.OS === 'web') {
-    return 'http://localhost:3000';
+    // Same-origin: as funções Vercel em api/*.ts são servidas pelo mesmo domínio
+    // do bundle web. Caminho relativo evita CORS e funciona em qualquer host.
+    return '';
   }
 
   // Detect Host IP from Expo manifest (Expo Go / Physical Device)

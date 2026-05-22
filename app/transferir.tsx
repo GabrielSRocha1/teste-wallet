@@ -512,6 +512,7 @@ export default function TransferirScreen() {
             description: `Você recebeu ${netAmount} ${currency} de ${senderName}.`,
             amount: `+${netAmount}`,
             currency: `${currency}${recvUsdStr}`,
+            data: { hash: result.hash },
           });
         }
 
@@ -523,6 +524,7 @@ export default function TransferirScreen() {
           description: `Você recebeu ${netAmount} ${currency} de ${senderName}.`,
           amount: `+${netAmount}`,
           currency: `${currency}${recvUsdStr}`,
+          data: { hash: result.hash },
         });
       }
 
@@ -536,6 +538,7 @@ export default function TransferirScreen() {
         description: `Você enviou ${grossAmount} ${currency} para ${destDisplay}.`,
         amount: `-${totalAmountWithFee}`,
         currency: `${currency}${sentUsdStr}`,
+        data: { hash: result.hash },
       });
 
       setIsResultModalVisible(true);

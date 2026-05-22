@@ -469,6 +469,7 @@ export default function EnviarCryptoScreen() {
           description: `Você recebeu ${netAmount} ${crypto} de ${senderName}.`,
           amount: `+${netAmount}`,
           currency: `${crypto}${recvUsdStr}`,
+          data: { hash: result.hash },
         });
       }
 
@@ -482,6 +483,7 @@ export default function EnviarCryptoScreen() {
         description: `Você enviou ${amountNum} ${crypto} para ${destDisplay}.`,
         amount: `-${totalAmountWithFee}`,
         currency: `${crypto}${sentUsdStr}`,
+        data: { hash: result.hash },
       });
 
       setLocalTxHash(result.hash);
