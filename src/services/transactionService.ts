@@ -301,11 +301,58 @@ export const TOKEN_MINTS: Record<string, string> = Object.fromEntries(
 // devnet  → EXPO_PUBLIC_SOLANA_RPC_DEVNET
 // mainnet → EXPO_PUBLIC_SOLANA_RPC_MAINNET
 
-const DEVNET_RPC  = process.env.EXPO_PUBLIC_SOLANA_RPC_DEVNET  ?? 'https://api.devnet.solana.com';
-const MAINNET_RPC = process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET ?? 'https://api.mainnet-beta.solana.com';
+const DEVNET_RPC = process.env.EXPO_PUBLIC_SOLANA_RPC_DEVNET ?? 'https://api.devnet.solana.com';
 
-// Lista de RPCs públicos para rotação em caso de erro 401/403/429
-// A ordem prioriza o oficial da Solana, seguido por Ankr e PublicNode.
+// ─── Proxy resolution ────────────────────────────────────────────────────────
+// O default DEPLOY é o proxy /api/solana-rpc (Vercel function que repassa pro
+// Helius com chave server-side). Isso evita que RPCs públicos bloqueiem
+// `getTokenAccountsByOwner` com 403 e mantém a chave fora do bundle.
+//
+// Para overrride explícito (dev local, RPC privado próprio), basta setar
+// `EXPO_PUBLIC_SOLANA_RPC_MAINNET` ou `EXPO_PUBLIC_HELIUS_*`.
+
+function resolveProxyBase(): string {
+  // 1. EXPO_PUBLIC_API_URL — definida no .env / painel Vercel
+  const envBase = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (envBase) return envBase.replace(/\/+$/, '');
+
+  // 2. window.location.origin no web — same-origin sem env var
+  if (typeof window !== 'undefined' && (window as any).location?.origin) {
+    return (window as any).location.origin;
+  }
+
+  // 3. Sem base — caller pode tratar como ausente (string vazia)
+  return '';
+}
+
+function resolveMainnetRpc(): string {
+  // Prioridade:
+  //   1. Override explícito (raro — dev avançado / RPC próprio)
+  const explicit = process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET?.trim();
+  if (explicit) return explicit;
+
+  //   2. Helius URL completa (legado .env.local)
+  const heliusUrl = process.env.EXPO_PUBLIC_HELIUS_RPC_URL?.trim();
+  if (heliusUrl) return heliusUrl;
+
+  //   3. Helius via chave EXPO_PUBLIC_ (chave PÚBLICA — tier free)
+  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
+  if (heliusKey) return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+
+  //   4. Proxy /api/solana-rpc no nosso próprio domínio (default seguro)
+  const base = resolveProxyBase();
+  if (base) return `${base}/api/solana-rpc`;
+
+  //   5. Fallback final — RPC público (vai falhar pra getTokenAccountsByOwner,
+  //      mas é melhor que crash em ambiente sem nada configurado)
+  return 'https://api.mainnet-beta.solana.com';
+}
+
+const MAINNET_RPC = resolveMainnetRpc();
+
+// Lista de RPCs públicos para rotação SOMENTE em retry após 401/403/429 do
+// RPC primário. Esses endpoints bloqueiam getTokenAccountsByOwner e outros
+// métodos úteis, então usar com moderação.
 const PUBLIC_RPC_LIST = [
   'https://solana-rpc.publicnode.com',
   'https://rpc.ankr.com/solana',
@@ -313,26 +360,24 @@ const PUBLIC_RPC_LIST = [
   'https://solana.public-rpc.com',
 ];
 
-
 let currentPublicIdx = 0;
 
-/** Retorna o RPC correto para a rede, sem ambiguidade */
+/** Retorna o RPC correto para a rede. */
 function rpcForNetwork(network: 'mainnet' | 'devnet', forcePublic = false): string {
   if (network === 'devnet') return DEVNET_RPC;
-  
-  // Se forçado (ex: em retry após 401/403), usa a lista de rotação.
-  if (forcePublic) {
-    return PUBLIC_RPC_LIST[currentPublicIdx];
-  }
-
-  // Se o RPC do .env for o padrão da Solana, usamos a rotação (que começa pelo oficial)
-  // para garantir que se o oficial falhar, possamos trocar para Ankr/PublicNode.
-  if (MAINNET_RPC === 'https://api.mainnet-beta.solana.com') {
-    return PUBLIC_RPC_LIST[currentPublicIdx];
-  }
-
-  // Se houver um RPC customizado (ex: um Helius privado funcional), usa ele.
+  if (forcePublic) return PUBLIC_RPC_LIST[currentPublicIdx];
   return MAINNET_RPC;
+}
+
+/** Endpoint WSS para subscriptions on-chain (onAccountChange, etc).
+ *  Não passa pelo proxy — Vercel functions não suportam WebSocket. Se o
+ *  app tiver acesso à chave Helius no bundle (EXPO_PUBLIC_HELIUS_API_KEY),
+ *  usa Helius direto. Senão, retorna undefined e o web3.js cairá pra polling. */
+function wsEndpointForNetwork(network: 'mainnet' | 'devnet'): string | undefined {
+  if (network === 'devnet') return undefined;
+  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
+  if (heliusKey) return `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+  return undefined;
 }
 
 
@@ -378,7 +423,10 @@ class TransactionService {
 
   constructor() {
     // Usa EXCLUSIVAMENTE o RPC da rede declarada — sem variável genérica ambígua
-    this.connection = new Connection(rpcForNetwork(this.currentNetwork), 'confirmed');
+    this.connection = new Connection(rpcForNetwork(this.currentNetwork), {
+      commitment: 'confirmed',
+      wsEndpoint: wsEndpointForNetwork(this.currentNetwork),
+    });
   }
 
   /**
@@ -452,7 +500,10 @@ class TransactionService {
     const cacheKey = `${this.currentNetwork}_publicRotation`;
     const cached = this.connectionCache.get(cacheKey);
     if (cached) return cached;
-    const conn = new Connection(rpcForNetwork(this.currentNetwork, true), 'confirmed');
+    const conn = new Connection(rpcForNetwork(this.currentNetwork, true), {
+      commitment: 'confirmed',
+      wsEndpoint: wsEndpointForNetwork(this.currentNetwork),
+    });
     this.connectionCache.set(cacheKey, conn);
     return conn;
   }
@@ -472,7 +523,10 @@ class TransactionService {
       if (firstKey) this.connectionCache.delete(firstKey);
     }
 
-    const conn = new Connection(rpcForNetwork(net, this.publicRpcMode), 'confirmed');
+    const conn = new Connection(rpcForNetwork(net, this.publicRpcMode), {
+      commitment: 'confirmed',
+      wsEndpoint: wsEndpointForNetwork(net),
+    });
     this.connectionCache.set(cacheKey, conn);
     return conn;
   }
@@ -526,7 +580,10 @@ class TransactionService {
     }
     this.currentNetwork = network;
     // rpcForNetwork garante que nunca haverá cruzamento de endpoints entre redes
-    this.connection = new Connection(rpcForNetwork(network), 'confirmed');
+    this.connection = new Connection(rpcForNetwork(network), {
+      commitment: 'confirmed',
+      wsEndpoint: wsEndpointForNetwork(network),
+    });
     this.connectionCache.clear();
     if (save) {
       AsyncStorage.setItem('@solana_network', network).catch(() => {});
