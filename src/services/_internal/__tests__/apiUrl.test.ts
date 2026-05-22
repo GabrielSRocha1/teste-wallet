@@ -12,13 +12,12 @@ vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '192.168.1.100:8081' } },
 }));
 
-import { getApiBaseUrl, getSwapApiBaseUrl } from '../../apiUrl';
+import { getApiBaseUrl } from '../../apiUrl';
 
 const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
   delete process.env.EXPO_PUBLIC_API_URL;
-  delete process.env.EXPO_PUBLIC_VERUM_SWAP_BACKEND;
 });
 
 afterEach(() => {
@@ -61,14 +60,3 @@ describe('getApiBaseUrl — (C5) precedência env-first', () => {
   });
 });
 
-describe('getSwapApiBaseUrl — (C5) mesma regra env-first', () => {
-  it('respeita EXPO_PUBLIC_VERUM_SWAP_BACKEND=http://localhost:3001 em dev', () => {
-    process.env.EXPO_PUBLIC_VERUM_SWAP_BACKEND = 'http://localhost:3001';
-    expect(getSwapApiBaseUrl()).toBe('http://localhost:3001');
-  });
-
-  it('respeita URL de produção', () => {
-    process.env.EXPO_PUBLIC_VERUM_SWAP_BACKEND = 'https://swap.verumcrypto.com';
-    expect(getSwapApiBaseUrl()).toBe('https://swap.verumcrypto.com');
-  });
-});

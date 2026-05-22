@@ -597,8 +597,9 @@ export default function TransferirScreen() {
   const networkFeeUsd = networkFeeSol * (prices['SOL']?.USD || 0);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: V.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <>
+    <View style={{ flex: 1, backgroundColor: V.bg }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <>
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <StatusBar barStyle="light-content" />
           <Header onBackPress={() => router.back()} onMenuPress={() => setSidebarVisible(true)} />
@@ -628,7 +629,7 @@ export default function TransferirScreen() {
                     <Feather name="user" size={18} color={errors.destinatario ? V.danger : V.gold} style={styles.inputIcon} />
                     <TextInput
                       style={styles.input}
-                      placeholder={t('E-mail ou endereço de carteira')}
+                      placeholder={t('Endereço de carteira')}
                       placeholderTextColor={V.muted}
                       autoCapitalize="none"
                       value={destinatario}
@@ -802,15 +803,8 @@ export default function TransferirScreen() {
           </View>
         </Modal>
 
-        <QRScannerModal
-          visible={isScannerVisible}
-          onClose={() => setIsScannerVisible(false)}
-          onScanned={handleBarCodeScanned}
-          label={t('Posicione o QR Code no centro')}
-        />
-
         {/* Password Modal */}
-        <PasswordModal 
+        <PasswordModal
           isVisible={isPasswordModalVisible}
           onClose={() => { setIsPasswordModalVisible(false); setPasswordError(null); }}
           loading={isLoading}
@@ -859,8 +853,18 @@ export default function TransferirScreen() {
             </View>
           </View>
         </Modal>
-      </>
-    </KeyboardAvoidingView>
+        </>
+      </KeyboardAvoidingView>
+
+      {/* QR Scanner — fora do KeyboardAvoidingView pra que re-renders do KAV
+          (ao abrir/fechar teclado) não desestabilizem o foco da câmera. */}
+      <QRScannerModal
+        visible={isScannerVisible}
+        onClose={() => setIsScannerVisible(false)}
+        onScanned={handleBarCodeScanned}
+        label={t('Posicione o QR Code no centro')}
+      />
+    </View>
   );
 }
 

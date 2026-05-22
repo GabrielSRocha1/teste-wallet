@@ -2,7 +2,6 @@ import React from 'react';
 const { createContext, useContext, useState, useEffect, useCallback, useRef } = React;
 import * as SettingsStorage from '@/constants/settings-storage';
 import transactionService from '@/src/services/transactionService';
-import { io, Socket } from 'socket.io-client';
 
 export type Language = 'en' | 'es' | 'pt';
 export type Currency = 'USD' | 'BRL' | 'PYG';
@@ -31,7 +30,7 @@ interface SettingsContextType {
   convertToCrypto: (amount: number, fromCurrency: SupportedCurrency, token: SupportedToken) => number | null;
 }
 
-import { getApiBaseUrl, SWAP_API_URL } from '@/src/services/apiUrl';
+import { getApiBaseUrl } from '@/src/services/apiUrl';
 
 export const API_URL = getApiBaseUrl();
 
@@ -827,85 +826,120 @@ const translations: Record<Language, Record<string, string>> = {
 import { getTokenMintsBySymbol } from '@/src/config/tokens';
 const INTERNAL_TOKEN_MINTS: Record<string, string> = getTokenMintsBySymbol('mainnet');
 
-// ─── Tier 1: Binance (CEX - Muito estável para major tokens) ────────────────
-async function fetchBinancePrice(symbol: string): Promise<number> {
-  try {
-    const res = await fetch(`${SWAP_API_URL}/api/prices/binance?symbol=${symbol}`, { headers: { 'ngrok-skip-browser-warning': '1' } });
-    if (!res.ok) {
-      console.warn(`[SettingsContext] Binance REST error: ${res.status}`);
-      return 0;
-    }
-    const data = await res.json();
-    return data.price || 0;
-  } catch (err: any) {
-    console.warn(`[SettingsContext] fetchBinancePrice(${symbol}) error:`, err.message);
-    return 0;
-  }
-}
+// ─── Fontes de preço PÚBLICAS (chamadas diretas, sem backend) ────────────────
+// CORS aberto nas 3 APIs (testado contra Origin = https://verumcrypto.com).
+// Estratégia: roda em paralelo, merge com prioridade Binance > CoinGecko > DexScreener
+// para majors, e DexScreener exclusivo para tokens internos (BDC/ESCT/BRT).
 
-
-// ─── Tier 2: Jupiter (DEX Aggregator - Melhor para Solana) ──────────────────
-async function fetchJupiterPrices(mints: string[]): Promise<Record<string, number>> {
-  if (mints.length === 0) return {};
-  try {
-    const res = await fetch(`${SWAP_API_URL}/api/prices?ids=${mints.join(',')}`, { headers: { 'ngrok-skip-browser-warning': '1' } });
-    if (!res.ok) {
-      console.warn(`[SettingsContext] Jupiter REST error: ${res.status}`);
-      return {};
-    }
-    const data = await res.json();
-    return data?.prices || {};
-  } catch (err: any) {
-    console.warn(`[SettingsContext] fetchJupiterPrices error:`, err.message);
-    return {};
-  }
-}
-
-
-// ─── Tier 3: CoinGecko (Agregador Geral) ─────────────────────────────────────
 const COINGECKO_IDS: Record<string, string> = {
   SOL: 'solana',
   USDC: 'usd-coin',
   USDT: 'tether',
   BTC: 'bitcoin',
-  ETH: 'ethereum'
+  ETH: 'ethereum',
+  BNB: 'binancecoin',
 };
+const COINGECKO_ID_TO_SYMBOL: Record<string, string> = Object.fromEntries(
+  Object.entries(COINGECKO_IDS).map(([sym, id]) => [id, sym]),
+);
 
-async function fetchCoinGeckoPrice(id: string): Promise<number> {
+// ─── Binance (CEX major tokens, atualização sub-segundo) ────────────────────
+async function fetchBinancePrice(symbol: string): Promise<number> {
   try {
-    const res = await fetch(`${SWAP_API_URL}/api/prices/coingecko?id=${id}`, { headers: { 'ngrok-skip-browser-warning': '1' } });
-    if (!res.ok) {
-      console.warn(`[SettingsContext] CoinGecko REST error: ${res.status}`);
-      return 0;
-    }
+    const res = await fetch(
+      `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    if (!res.ok) return 0;
     const data = await res.json();
-    return data.price || 0;
+    return parseFloat(data?.price ?? '0') || 0;
   } catch (err: any) {
-    console.warn(`[SettingsContext] fetchCoinGeckoPrice(${id}) error:`, err.message);
+    console.warn(`[SettingsContext] fetchBinancePrice(${symbol}) error:`, err?.message);
     return 0;
   }
 }
 
+async function fetchBinancePricesBatch(): Promise<Record<string, number>> {
+  try {
+    const pairs = ['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT'];
+    const res = await fetch(
+      `https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(pairs))}`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    if (!res.ok) return { USDT: 1 };
+    const data = (await res.json()) as Array<{ symbol: string; price: string }>;
+    const out: Record<string, number> = { USDT: 1 };
+    for (const item of data) {
+      const sym = item.symbol.replace('USDT', '');
+      const price = parseFloat(item.price);
+      if (price > 0) out[sym] = price;
+    }
+    return out;
+  } catch {
+    return { USDT: 1 };
+  }
+}
 
-// ─── Tier 4: DexScreener (Tokens "Long Tail" / Internos) ─────────────────────
+// ─── CoinGecko (agregador, suporta BRL/PYG mas usamos USD + forex próprio) ──
+async function fetchCoinGeckoPrice(id: string): Promise<number> {
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data?.[id]?.usd ?? 0;
+  } catch (err: any) {
+    console.warn(`[SettingsContext] fetchCoinGeckoPrice(${id}) error:`, err?.message);
+    return 0;
+  }
+}
+
+async function fetchCoinGeckoBatch(ids: string[]): Promise<Record<string, number>> {
+  if (ids.length === 0) return {};
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return {};
+    const data = (await res.json()) as Record<string, { usd?: number }>;
+    const out: Record<string, number> = {};
+    for (const [id, obj] of Object.entries(data || {})) {
+      const usd = obj?.usd ?? 0;
+      if (usd > 0) out[id] = usd;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// ─── DexScreener (única fonte que cobre BDC/ESCT/BRT e tokens long-tail) ────
 async function fetchDexScreenerPrices(mints: string[]): Promise<Record<string, number>> {
   if (mints.length === 0) return {};
   try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mints.join(',')}`);
+    const res = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${mints.join(',')}`,
+      { signal: AbortSignal.timeout(10_000) },
+    );
     if (!res.ok) return {};
     const data = await res.json();
-    const results: Record<string, number> = {};
+    const out: Record<string, number> = {};
+    const bestLiquidity: Record<string, number> = {};
     for (const pair of (data?.pairs ?? [])) {
-      const mint = pair.baseToken?.address;
-      const price = parseFloat(pair.priceUsd || '0');
-      if (mint && price > 0) {
-        // Pega sempre o de maior liquidez para aquele mint
-        if (!results[mint] || (pair.liquidity?.usd ?? 0) > 100) {
-          results[mint] = price;
-        }
+      const mint = pair?.baseToken?.address;
+      const price = parseFloat(pair?.priceUsd ?? '0');
+      const liq = pair?.liquidity?.usd ?? 0;
+      if (!mint || price <= 0) continue;
+      // Pega sempre o pair de MAIOR liquidez por mint pra evitar preço de pool morta.
+      if (!out[mint] || liq > (bestLiquidity[mint] ?? 0)) {
+        out[mint] = price;
+        bestLiquidity[mint] = liq;
       }
     }
-    return results;
+    return out;
   } catch {
     return {};
   }
@@ -921,8 +955,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [rates, setRates] = useState({ BRL: 5.10, PYG: 7300 });
   const [prices, setPrices] = useState<PriceMap>({});
   
-  const socketRef = useRef<Socket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const syncTokenPrices = useCallback(async (snapshot: PriceMap) => {
     const symbols = Object.keys(INTERNAL_TOKEN_MINTS);
@@ -935,27 +967,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (priceObj && (priceObj.USD ?? 0) > 0) {
         continue;
       }
-      
+
       let usd = 0;
 
-      // 1. Tenta Binance (Major Tokens) via Proxy
-      if (['SOL', 'USDC', 'USDT', 'BTC', 'ETH'].includes(sym)) {
+      // 1. Binance — majors (SOL, USDC, USDT, BTC, ETH, BNB)
+      if (['SOL', 'USDC', 'USDT', 'BTC', 'ETH', 'BNB'].includes(sym)) {
         usd = await fetchBinancePrice(sym);
       }
 
-
-      // 2. Tenta Jupiter (Qualquer Solana)
-      if (usd === 0) {
-        const jupResults = await fetchJupiterPrices([mint]);
-        usd = jupResults[mint] ?? 0;
-      }
-
-      // 3. Tenta CoinGecko
+      // 2. CoinGecko — majors fallback (mesma cobertura, latência maior)
       if (usd === 0 && COINGECKO_IDS[sym]) {
         usd = await fetchCoinGeckoPrice(COINGECKO_IDS[sym]);
       }
 
-      // 4. Tenta DexScreener (Tokens Internos/Baixa Liquidez)
+      // 3. DexScreener — única fonte para tokens internos (BDC/ESCT/BRT) e long-tail
       if (usd === 0) {
         const dexResults = await fetchDexScreenerPrices([mint]);
         usd = dexResults[mint] ?? 0;
@@ -979,152 +1004,77 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [rates]);
 
-  // ── Carga inicial via REST ────────────────────────────────────────────────
+  // ── Carga inicial via REST — 100% público (Binance + CoinGecko + DexScreener) ─
   const fetchPricesRest = useCallback(async () => {
-    const isWeb = typeof window !== 'undefined';
-    const isLocalBackend =
-      API_URL.includes('192.168.') ||
-      API_URL.includes('localhost') ||
-      API_URL.includes('127.0.');
-    
-    // Corrigido: Usa SWAP_API_URL (porta 3001) para fugir do erro de CORS do ngrok/NestJS
-    const pricesUrl = `${SWAP_API_URL}/api/prices`;
-    console.log('[SettingsContext] Buscando preços via REST:', pricesUrl);
+    const internalMints = Object.values(INTERNAL_TOKEN_MINTS);
+    const coingeckoIds = Object.values(COINGECKO_IDS);
 
-    let basePrices: PriceMap = {};
+    console.log('[SettingsContext] Buscando preços direto (3 fontes em paralelo)');
 
-    try {
-      const res = await fetch(pricesUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': '1',
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const rawPrices = data?.prices || {};
-        console.log(`[SettingsContext] REST: Recebidos ${Object.keys(rawPrices).length} tokens do backend.`);
-        
-        // Mapeamento e normalização
-        const mappedPrices: PriceMap = {};
-        for (const [sym, p] of Object.entries(rawPrices)) {
-          // Normaliza BDC: Aceita tanto o ticker 'BODE' quanto o Mint Address como 'BDC'
-          const isBdcMint = sym === 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9';
-          const finalSym = (sym === 'BODE' || isBdcMint) ? 'BDC' : sym;
-          
-          const usd = typeof p === 'number' ? p : (p as any)?.USD ?? 0;
-          if (usd > 0) {
-            mappedPrices[finalSym] = {
-              USD: usd,
-              BRL: usd * rates.BRL,
-              PYG: usd * rates.PYG
-            };
-          }
-        }
-        
-        if (Object.keys(mappedPrices).length > 0) {
-          setPrices(prev => {
-            const next = { ...prev, ...mappedPrices };
-            SettingsStorage.setPricesCache(next).catch(() => {});
-            return next;
-          });
-          basePrices = mappedPrices;
-        }
-      }
-    } catch (e) {
-      console.warn('[SettingsContext] Erro ao buscar preços via REST backend.');
+    // 3 fontes em paralelo — qualquer uma falhar não derruba as outras.
+    const [binance, coingecko, dex] = await Promise.all([
+      fetchBinancePricesBatch(),
+      fetchCoinGeckoBatch(coingeckoIds),
+      fetchDexScreenerPrices(internalMints),
+    ]);
+
+    const usd: Record<string, number> = {};
+
+    // Tier 1: Binance (majors em tempo quase real)
+    for (const [sym, price] of Object.entries(binance)) {
+      if (price > 0) usd[sym] = price;
     }
 
-    // Dispara a sincronização multi-tier para o que faltar
-    await syncTokenPrices(basePrices);
+    // Tier 2: CoinGecko preenche o que Binance não trouxe
+    for (const [id, price] of Object.entries(coingecko)) {
+      const sym = COINGECKO_ID_TO_SYMBOL[id];
+      if (sym && !usd[sym] && price > 0) usd[sym] = price;
+    }
+
+    // Tier 3: DexScreener — autoritativo para tokens internos
+    for (const [sym, mint] of Object.entries(INTERNAL_TOKEN_MINTS)) {
+      const price = dex[mint];
+      if (price && price > 0) {
+        // DexScreener prevalece para internos (BDC/ESCT/BRT), mas só sobrescreve majors
+        // se Binance/CoinGecko não trouxeram.
+        if (!usd[sym] || ['BDC', 'ESCT', 'BRT'].includes(sym)) {
+          usd[sym] = price;
+        }
+      }
+    }
+
+    // Stablecoins: forçamos $1 caso nenhuma fonte tenha respondido.
+    usd.USDT = usd.USDT || 1;
+    usd.USDC = usd.USDC || 1;
+
+    console.log(`[SettingsContext] Direto: ${Object.keys(usd).length} preços (binance=${Object.keys(binance).length}, coingecko=${Object.keys(coingecko).length}, dex=${Object.keys(dex).length})`);
+
+    const mappedPrices: PriceMap = {};
+    for (const [sym, v] of Object.entries(usd)) {
+      if (v > 0) {
+        mappedPrices[sym] = {
+          USD: v,
+          BRL: v * rates.BRL,
+          PYG: v * rates.PYG,
+        };
+      }
+    }
+
+    if (Object.keys(mappedPrices).length > 0) {
+      setPrices(prev => {
+        const next = { ...prev, ...mappedPrices };
+        SettingsStorage.setPricesCache(next).catch(() => {});
+        return next;
+      });
+    }
+
+    // Sincroniza tokens internos faltantes (com retry isolado por símbolo).
+    await syncTokenPrices(mappedPrices);
   }, [rates, syncTokenPrices]);
 
-  // ── Conexão WebSocket para Preços ──────────────────────────────────────────
-  // O backend de swap (porta 3001) NÃO expõe socket.io — apenas REST.
-  // O polling REST de 15s abaixo (`fetchPricesRest`) cobre o real-time.
-  // Para reativar, suba um servidor socket.io no namespace `/prices` e
-  // mude PRICES_WS_ENABLED para true.
-  const PRICES_WS_ENABLED = false;
-  const connectPricesWS = useCallback(() => {
-    if (!PRICES_WS_ENABLED) return;
-    const isWeb = typeof window !== 'undefined';
-    const isLocalBackend =
-      API_URL.includes('192.168.') ||
-      API_URL.includes('localhost') ||
-      API_URL.includes('127.0.');
-    if (isWeb && isLocalBackend) return;
-
-    // Destrói socket anterior se existir e não estiver conectado
-    if (socketRef.current) {
-      if (socketRef.current.connected) return;
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-
-    // Tenta conectar no SWAP_API_URL (3001) que é onde residem os novos serviços de preços
-    const socket = io(`${SWAP_API_URL}/prices`, {
-      transports: ['websocket'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
-    });
-
-    socket.on('connect', () => {
-      console.log('[SettingsContext] WS Preços conectado');
-      if (reconnectTimerRef.current) {
-        clearInterval(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    });
-
-    socket.on('price.tick', (payload: any) => {
-      const rawData = payload?.prices ? payload.prices : payload;
-      if (rawData && typeof rawData === 'object' && Object.keys(rawData).length > 0) {
-        const mapped: PriceMap = {};
-        for (const [sym, p] of Object.entries(rawData)) {
-          const isBdcMint = sym === 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9';
-          const finalSym = (sym === 'BODE' || isBdcMint) ? 'BDC' : sym;
-
-          const usd = typeof p === 'number' ? p : (p as any)?.USD ?? 0;
-          if (usd > 0) {
-            mapped[finalSym] = {
-              USD: usd,
-              BRL: usd * rates.BRL,
-              PYG: usd * rates.PYG
-            };
-          }
-        }
-        
-        setPrices(prev => ({ ...prev, ...mapped }));
-        
-        // Sincroniza o que ainda falta (como USDT ou BDC se não vierem no tick)
-        void syncTokenPrices(mapped);
-      }
-    });
-
-    socket.on('connect_error', () => {
-      // Fallback REST imediato e polling enquanto WS está fora
-      void fetchPricesRest();
-      if (!reconnectTimerRef.current) {
-        reconnectTimerRef.current = setInterval(() => void fetchPricesRest(), 10_000) as any;
-      }
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.warn('[SettingsContext] WS desconectado:', reason);
-      // Se o servidor desconectou, inicia REST polling como fallback
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        void fetchPricesRest();
-        if (!reconnectTimerRef.current) {
-          reconnectTimerRef.current = setInterval(() => void fetchPricesRest(), 10_000) as any;
-        }
-      }
-    });
-
-    socketRef.current = socket;
-  }, [fetchPricesRest, rates]);
-
   // ── Polling de Preços (Real-time 15s) ─────────────────────────────────────
+  // Sem WebSocket — fetchPricesRest cobre o real-time via 3 fontes públicas
+  // (Binance + CoinGecko + DexScreener) a cada 15s.
   const isFetchingRef = useRef(false);
 
   useEffect(() => {
@@ -1139,20 +1089,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     };
 
     void fetchWrapper();
-    connectPricesWS();
 
     const interval = setInterval(fetchWrapper, 15000);
 
     return () => {
       clearInterval(interval);
-      if (reconnectTimerRef.current) {
-        clearInterval(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-      socketRef.current?.disconnect();
-      socketRef.current = null;
     };
-  }, [fetchPricesRest, connectPricesWS]);
+  }, [fetchPricesRest]);
 
   useEffect(() => {
     SettingsStorage.getLanguage().then(setLangState);

@@ -1,6 +1,14 @@
-import { getSwapApiBaseUrl } from './apiUrl';
+// 100% público — sem backend. 3 fontes em paralelo: Binance + CoinGecko + DexScreener.
+const INTERNAL_MINTS = {
+  BDC: 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9',
+  ESCT: 'Ctauy54NbyabVqGXHuY5wwVEAh29mGhh5KGfif5jppZt',
+  BRT: '3nmVqybqR7iWwynmVtCAe1cBF8S6w3Kk3hTNiCy4UMEE',
+} as const;
 
-const API_URL = getSwapApiBaseUrl();
+const COINGECKO_TO_SYM: Record<string, string> = {
+  solana: 'SOL', tether: 'USDT', 'usd-coin': 'USDC',
+  bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
+};
 
 /**
  * Estado de saúde reportado aos assinantes de erros. Permite que UIs mostrem
@@ -70,41 +78,82 @@ class RealtimePriceService {
 
   private async fetchPrices() {
     try {
-      const baseUrl = API_URL;
-      const response = await fetch(`${baseUrl}/api/prices`, { headers: { 'ngrok-skip-browser-warning': '1' } });
+      const internalMints = Object.values(INTERNAL_MINTS);
+      const coingeckoIds = Object.keys(COINGECKO_TO_SYM);
 
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-
-      const data = await response.json();
+      const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+        fetch(
+          `https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
+          { signal: AbortSignal.timeout(6_000) },
+        ).then(r => r.ok ? r.json() : []),
+        fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd`,
+          { signal: AbortSignal.timeout(6_000) },
+        ).then(r => r.ok ? r.json() : {}),
+        fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
+          { signal: AbortSignal.timeout(6_000) },
+        ).then(r => r.ok ? r.json() : { pairs: [] }),
+      ]);
 
       const formattedPrices: Record<string, number> = {};
 
-      if (data && typeof data === 'object') {
-        const pricesPayload = data.prices ? data.prices : data;
+      // Binance — majors
+      if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
+        for (const item of binanceRes.value as { symbol: string; price: string }[]) {
+          const sym = item.symbol.replace('USDT', '');
+          const p = parseFloat(item.price);
+          if (p > 0) formattedPrices[sym] = p;
+        }
+      }
 
-        for (const [symbol, pObj] of Object.entries(pricesPayload)) {
-          // Normalização do símbolo (BDC como principal)
-          const finalSymbol = symbol === 'BODE' ? 'BDC' : symbol;
+      // CoinGecko — gaps
+      if (coingeckoRes.status === 'fulfilled') {
+        const cg = coingeckoRes.value as Record<string, { usd?: number }>;
+        for (const [id, obj] of Object.entries(cg || {})) {
+          const sym = COINGECKO_TO_SYM[id];
+          if (sym && !formattedPrices[sym] && obj?.usd) formattedPrices[sym] = obj.usd;
+        }
+      }
 
-          if (typeof pObj === 'number') {
-            formattedPrices[finalSymbol] = pObj;
-          } else if (pObj && (pObj as any).USD) {
-            formattedPrices[finalSymbol] = (pObj as any).USD;
+      // DexScreener — autoritativo para internos
+      if (dexRes.status === 'fulfilled') {
+        const dex = dexRes.value as { pairs?: any[] };
+        const mintToSym: Record<string, string> = Object.fromEntries(
+          Object.entries(INTERNAL_MINTS).map(([sym, mint]) => [mint, sym]),
+        );
+        const bestPerMint: Record<string, { price: number; liq: number }> = {};
+        for (const pair of dex.pairs ?? []) {
+          const mint = pair?.baseToken?.address;
+          const price = parseFloat(pair?.priceUsd ?? '0');
+          const liq = pair?.liquidity?.usd ?? 0;
+          if (!mint || price <= 0) continue;
+          if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
+            bestPerMint[mint] = { price, liq };
           }
         }
-
-        this.currentPrices = formattedPrices;
-        this.lastSuccessAt = Date.now();
-        this.consecutiveFailures = 0;
-        this.notify(formattedPrices);
+        for (const [mint, { price }] of Object.entries(bestPerMint)) {
+          const sym = mintToSym[mint];
+          if (sym) formattedPrices[sym] = price;
+        }
       }
+
+      // Stablecoins fallback $1
+      if (!formattedPrices.USDT) formattedPrices.USDT = 1;
+      if (!formattedPrices.USDC) formattedPrices.USDC = 1;
+
+      if (Object.keys(formattedPrices).length === 0) {
+        throw new Error('Nenhuma fonte de preço retornou dados.');
+      }
+
+      this.currentPrices = formattedPrices;
+      this.lastSuccessAt = Date.now();
+      this.consecutiveFailures = 0;
+      this.notify(formattedPrices);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.consecutiveFailures++;
       console.warn('[RealtimePriceService] Erro ao buscar preços:', message);
-      // Notifica assinantes de erro. UIs podem exibir indicador de staleness
-      // (ex: "preços defasados há 30s"). Backward compatible: assinantes que
-      // só usam `subscribe()` continuam funcionando sem mudança.
       this.notifyError({
         message,
         lastSuccessAt: this.lastSuccessAt,

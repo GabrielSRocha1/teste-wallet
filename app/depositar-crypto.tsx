@@ -12,7 +12,6 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import CurrencyConverter from '@/components/CurrencyConverter';
 import { supabase } from '@/src/services/supabase';
-import { getApiBaseUrl } from '@/src/services/apiUrl';
 import { V, F } from '@/constants/theme';
 import { useSettings } from '@/constants/SettingsContext';
 import { useSolanaWallet } from '@/src/hooks/useSolanaWallet';
@@ -27,8 +26,6 @@ const TOKENS: { symbol: CryptoToken; name: string; color: string }[] = [
   { symbol: 'BDC',  name: 'BDC Token',     color: V.gold   },
   { symbol: 'ESCT', name: 'ESCT Token',    color: '#F0D080' },
 ];
-
-const API_URL = getApiBaseUrl();
 
 export default function DepositarCryptoScreen() {
   const insets = useSafeAreaInsets();
@@ -87,6 +84,8 @@ export default function DepositarCryptoScreen() {
   const selectedTokenInfo = TOKENS.find(tk => tk.symbol === selectedToken)!;
 
   // ── Confirmar pagamento ──────────────────────────────────────────────────────
+  // Insert direto no Supabase (sem backend) — RLS garante que o user só pode
+  // criar pedidos pra si mesmo.
   const handleConfirmPayment = async () => {
     const amount = parseFloat(expectedAmount.replace(',', '.'));
     if (!amount || amount <= 0) {
@@ -100,26 +99,26 @@ export default function DepositarCryptoScreen() {
 
     setIsConfirming(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error(t('Usuário não autenticado.'));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(t('Usuário não autenticado.'));
 
-      const response = await fetch(`${API_URL}/api/deposit/crypto`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ token: selectedToken, expectedAmount: amount }),
+      const newOrderId = `crypto-${user.id}-${Date.now()}`;
+
+      const { error: dbError } = await (supabase as any).from('deposit_orders').insert({
+        id: newOrderId,
+        user_id: user.id,
+        wallet_address: address,
+        amount_brl: 0,
+        expected_usdt: amount,
+        exchange_rate: 0,
+        provider: 'crypto',
+        status: 'pending',
+        saga_step: 'CRYPTO_AWAITING',
+        expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
       });
+      if (dbError) throw new Error(dbError.message);
 
-      const json = await response.json();
-
-      if (!response.ok) {
-        const msg = json?.error?.message || t('Erro ao registrar depósito.');
-        throw new Error(msg);
-      }
-
-      setOrderId(json.orderId);
+      setOrderId(newOrderId);
       setSuccessModalVisible(true);
     } catch (e: any) {
       Alert.alert(t('ERRO'), e.message || t('Erro ao registrar depósito. Tente novamente.'));

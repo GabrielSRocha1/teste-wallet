@@ -22,7 +22,8 @@ const PICPAY_CHARGE_URL = 'https://checkout-api.picpay.com/charge/pix';
 const CLIENT_ID = process.env.PICPAY_GATEWAY_CLIENT_ID ?? '';
 const CLIENT_SECRET = process.env.PICPAY_GATEWAY_CLIENT_SECRET ?? '';
 const WEBHOOK_SECRET = process.env.PICPAY_GATEWAY_WEBHOOK_SECRET ?? '';
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+// Aceita tanto SUPABASE_URL (convenção do backend) quanto NEXT_PUBLIC_SUPABASE_URL (legado).
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 const ALLOWED_ORIGINS = [

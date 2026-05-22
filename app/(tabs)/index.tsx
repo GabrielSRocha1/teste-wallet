@@ -12,7 +12,7 @@ import QRScannerModal from '@/components/QRScannerModal';
 import * as Clipboard from 'expo-clipboard';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Image, Keyboard, Modal, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V, F, PAD } from '@/constants/theme';
 import keyManager from '@/src/services/keyManager';
@@ -352,7 +352,8 @@ export default function HomeScreen() {
   };
 
   const startScanner = () => {
-    setIsScannerVisible(true);
+    Keyboard.dismiss();
+    setTimeout(() => setIsScannerVisible(true), 300);
   };
 
   return (

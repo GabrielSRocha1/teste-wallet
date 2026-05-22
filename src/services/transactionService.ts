@@ -8,7 +8,7 @@ import bs58 from 'bs58';
 import { generateFullWallet } from './keyDerivation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/src/services/supabase';
-import { getApiBaseUrl, SWAP_API_URL } from './apiUrl';
+import { getApiBaseUrl } from './apiUrl';
 
 // ─── Infra de resiliência (FASE 2.A) ─────────────────────────────────────────
 import { createLogger, newCorrelationId } from './_internal/logger';
@@ -29,13 +29,6 @@ const rpcBreaker = new CircuitBreaker({
   failureThreshold: 5,
   rollingWindowMs: 60_000,
   cooldownMs: 30_000,
-});
-
-const backendBreaker = new CircuitBreaker({
-  name: 'verum-swap-backend',
-  failureThreshold: 3,
-  rollingWindowMs: 30_000,
-  cooldownMs: 15_000,
 });
 
 /**
@@ -556,49 +549,46 @@ class TransactionService {
 
   async getSOLPrice(): Promise<number> {
     if (this.currentNetwork === 'devnet') return 0;
-    
+
+    // 1. Binance — pair SOLUSDT, atualização sub-segundo
     try {
-      const url = SWAP_API_URL + '/api/prices';
-      const res = await fetch(url, { headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' } });
+      const res = await fetch(
+        'https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT',
+        { signal: AbortSignal.timeout(6_000) },
+      );
       if (res.ok) {
         const data = await res.json();
-        const price = data?.prices?.['SOL']?.USD ?? 0;
+        const price = parseFloat(data?.price ?? '0');
         if (price > 0) return price;
       }
-    } catch (e) {
-      console.warn('[TransactionService] Falha ao buscar preço SOL do backend, tentando Jupiter...');
-    }
+    } catch {}
 
-    // Fallback Público: Removido para evitar 403/429 excessivos no log.
-    // O backend já tem fallbacks internos para SOL.
-    
+    // 2. CoinGecko fallback
+    try {
+      const res = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+        { signal: AbortSignal.timeout(6_000) },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const price = data?.solana?.usd ?? 0;
+        if (price > 0) return price;
+      }
+    } catch {}
+
     return 0;
   }
 
   async getSOLBalance(address: string): Promise<number> {
     try {
-      // 1. Tenta via Backend Proxy (mais rápido e economiza RPC)
-      try {
-        const url = `${SWAP_API_URL}/api/balances/${address}`;
-        const res = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } });
-        if (res.ok) {
-          const data = await res.json();
-          if (typeof data.sol === 'number') {
-            return data.sol;
-          }
-        }
-      } catch (e) {
-        console.warn('[TransactionService] Falha ao buscar saldo SOL do backend.');
-      }
-
-      // 2. Fallback: On-chain direto
-      const connection = this.getConnection();
       const pubkey = new PublicKey(address);
       const lamports = await this.withRetry((c) => c.getBalance(pubkey));
-      const sol = lamports / LAMPORTS_PER_SOL;
-      return sol;
+      return lamports / LAMPORTS_PER_SOL;
     } catch (e: any) {
-      console.error('[TransactionService] Erro fatal ao buscar saldo SOL:', e.message);
+      console.error('[TransactionService] Erro ao buscar saldo SOL on-chain:', e.message);
+      if (e?.message?.includes('403') || e?.message?.includes('429')) {
+        this.rotatePublicRpc();
+      }
       return 0;
     }
   }
@@ -611,29 +601,79 @@ class TransactionService {
         return { prices, changes };
       }
 
-      // 1. Tenta Backend
-      try {
-          const url = SWAP_API_URL + '/api/prices';
-          const res = await fetch(url, { headers: { Accept: 'application/json', 'ngrok-skip-browser-warning': '1' } });
-          if (res.ok) {
-              const data = await res.json();
-              if (data && data.prices) {
-                  for (const [symbol, pObj] of Object.entries(data.prices)) {
-                      const finalSymbol = symbol === 'BODE' ? 'BDC' : symbol;
-                      if (typeof pObj === 'number') {
-                          prices[finalSymbol] = { USD: pObj };
-                      } else if (pObj && (pObj as any).USD) {
-                          prices[finalSymbol] = { USD: (pObj as any).USD };
-                      }
-                  }
-              }
-          }
-      } catch (e) {
-          console.warn('[TransactionService] Erro ao buscar preços do backend, tentando Jupiter...');
+      const metas = TOKEN_MINTS_MAINNET;
+      const internalMints = Object.values(metas).map(m => m.mint);
+      const coingeckoIds = ['solana', 'usd-coin', 'tether', 'bitcoin', 'ethereum', 'binancecoin'];
+      const COINGECKO_TO_SYM: Record<string, string> = {
+        solana: 'SOL', 'usd-coin': 'USDC', tether: 'USDT',
+        bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
+      };
+
+      // 3 fontes em paralelo — qualquer falha é absorvida individualmente
+      const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+        fetch(
+          `https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
+          { signal: AbortSignal.timeout(6_000) },
+        ).then(r => r.ok ? r.json() : []),
+        fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd`,
+          { signal: AbortSignal.timeout(8_000) },
+        ).then(r => r.ok ? r.json() : {}),
+        fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
+          { signal: AbortSignal.timeout(8_000) },
+        ).then(r => r.ok ? r.json() : { pairs: [] }),
+      ]);
+
+      // Binance
+      if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
+        for (const item of binanceRes.value as { symbol: string; price: string }[]) {
+          const sym = item.symbol.replace('USDT', '');
+          const p = parseFloat(item.price);
+          if (p > 0) prices[sym] = { USD: p };
+        }
       }
 
-      // Fallback Público: Removido. Forçamos o uso do Backend Proxy que tem API Key.
-      
+      // CoinGecko (preenche gaps)
+      if (coingeckoRes.status === 'fulfilled') {
+        const cg = coingeckoRes.value as Record<string, { usd?: number }>;
+        for (const [id, obj] of Object.entries(cg || {})) {
+          const sym = COINGECKO_TO_SYM[id];
+          if (sym && !prices[sym] && obj?.usd) prices[sym] = { USD: obj.usd };
+        }
+      }
+
+      // DexScreener (autoritativo para internos)
+      if (dexRes.status === 'fulfilled') {
+        const dex = dexRes.value as { pairs?: any[] };
+        const mintToSym = Object.fromEntries(
+          Object.entries(metas).map(([sym, m]) => [m.mint, sym]),
+        );
+        const bestPerMint: Record<string, { price: number; liq: number }> = {};
+        for (const pair of dex.pairs ?? []) {
+          const mint = pair?.baseToken?.address;
+          const price = parseFloat(pair?.priceUsd ?? '0');
+          const liq = pair?.liquidity?.usd ?? 0;
+          if (!mint || price <= 0) continue;
+          if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
+            bestPerMint[mint] = { price, liq };
+          }
+        }
+        for (const [mint, { price }] of Object.entries(bestPerMint)) {
+          const sym = mintToSym[mint];
+          if (!sym) continue;
+          // Para tokens internos (BDC/ESCT/BRT) DexScreener é a fonte primária;
+          // para majors, só preenche se Binance/CoinGecko não trouxeram.
+          if (['BDC', 'ESCT', 'BRT'].includes(sym) || !prices[sym]) {
+            prices[sym] = { USD: price };
+          }
+        }
+      }
+
+      // Stablecoins: força $1 se nada respondeu
+      if (!prices.USDT) prices.USDT = { USD: 1 };
+      if (!prices.USDC) prices.USDC = { USD: 1 };
+
       return { prices, changes };
   }
 
@@ -1144,7 +1184,7 @@ class TransactionService {
         throw primaryErr;
       }
 
-      // ── Fallback 1: RPC público ────────────────────────────────────────────
+      // ── Fallback: RPC público ──────────────────────────────────────────────
       opLog.warn('broadcast.fallback_public', { reason: primaryMsg.substring(0, 120) });
       try {
         currentConnection = this.getPublicConnection();
@@ -1163,51 +1203,11 @@ class TransactionService {
         );
         opLog.debug('broadcast.sent_via_public');
       } catch (publicErr: any) {
-        // ── Fallback 2: Backend proxy ────────────────────────────────────────
-        opLog.warn('broadcast.fallback_backend', { reason: publicErr?.message?.substring(0, 120) });
-        try {
-          const backendResult = await backendBreaker.execute(async () => {
-            const res = await withTimeout(
-              fetch(`${SWAP_API_URL}/api/swap/broadcast`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-                body: JSON.stringify({
-                  signedTxBase64: Buffer.from(rawTx).toString('base64'),
-                }),
-              }),
-              20_000,
-              'backendBroadcast',
-            );
-            if (!res.ok) {
-              const errData = await res.json().catch(() => ({} as any));
-              throw new Error(errData.error || `Backend respondeu ${res.status}`);
-            }
-            return res.json() as Promise<{ signature?: string }>;
-          });
-
-          if (!backendResult.signature) {
-            throw new Error('Backend proxy não retornou signature.');
-          }
-          sendStrategy = 'backend';
-          opLog.info('broadcast.sent_via_backend', { backendSignature: backendResult.signature });
-
-          // Backend gerou a assinatura — confirma usando conexão pública.
-          const { slot } = await this.confirmTransactionRobust(
-            backendResult.signature,
-            signedBlockhash,
-            this.getPublicConnection(),
-            lastValidBlockHeight,
-            rawTx,
-          );
-          opLog.info('broadcast.confirmed', { strategy: sendStrategy, slot });
-          return { hash: backendResult.signature, status: 'confirmed', slot };
-        } catch (backendErr: any) {
-          opLog.error('broadcast.all_strategies_failed', backendErr, {
-            primaryError: primaryMsg.substring(0, 120),
-            publicError: publicErr?.message?.substring(0, 120),
-          });
-          throw new Error(`Falha total no envio: ${backendErr.message ?? backendErr}`);
-        }
+        opLog.error('broadcast.all_strategies_failed', publicErr, {
+          primaryError: primaryMsg.substring(0, 120),
+          publicError: publicErr?.message?.substring(0, 120),
+        });
+        throw new Error(`Falha total no envio: ${publicErr.message ?? publicErr}`);
       }
     }
 
@@ -1470,8 +1470,102 @@ class TransactionService {
     };
   }
 
-  // ─── getBalances: 2 chamadas RPC totais (getBalance + getParsedTokenAccountsByOwner batch) ──
+  // ─── Jupiter v6 direto (sem backend) ──────────────────────────────────────
+  // API pública com CORS aberto: api.jup.ag/swap/v1 (mais novo) ou quote-api.jup.ag/v6 (alias).
+  // Mantemos a fee Verum (2%) via platformFeeBps + feeAccount derivado da treasury.
 
+  private readonly JUPITER_QUOTE_URL = 'https://quote-api.jup.ag/v6/quote';
+  private readonly JUPITER_SWAP_URL = 'https://quote-api.jup.ag/v6/swap';
+
+  async jupiterQuote(params: {
+    inputMint: string;
+    outputMint: string;
+    amount: string | number;
+    slippageBps: number;
+    platformFeeBps?: number;
+    onlyDirectRoutes?: boolean;
+  }): Promise<any> {
+    const url = new URL(this.JUPITER_QUOTE_URL);
+    url.searchParams.set('inputMint', params.inputMint);
+    url.searchParams.set('outputMint', params.outputMint);
+    url.searchParams.set('amount', String(params.amount));
+    url.searchParams.set('slippageBps', String(params.slippageBps));
+    if (params.platformFeeBps !== undefined) {
+      url.searchParams.set('platformFeeBps', String(params.platformFeeBps));
+    }
+    if (params.onlyDirectRoutes !== undefined) {
+      url.searchParams.set('onlyDirectRoutes', String(params.onlyDirectRoutes));
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Jupiter quote ${res.status}: ${text.slice(0, 200)}`);
+    }
+    return res.json();
+  }
+
+  async jupiterBuildSwap(params: {
+    quoteResponse: any;
+    userPublicKey: string;
+    wrapAndUnwrapSol?: boolean;
+    feeAccount?: string;
+  }): Promise<{ swapTransaction: string; lastValidBlockHeight: number; prioritizationFeeLamports?: number }> {
+    const body: Record<string, unknown> = {
+      quoteResponse: params.quoteResponse,
+      userPublicKey: params.userPublicKey,
+      wrapAndUnwrapSol: params.wrapAndUnwrapSol ?? true,
+      asLegacyTransaction: false,
+      prioritizationFeeLamports: 'auto',
+    };
+    if (params.feeAccount) {
+      body.feeAccount = params.feeAccount;
+    }
+
+    const res = await fetch(this.JUPITER_SWAP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Jupiter swap ${res.status}: ${text.slice(0, 200)}`);
+    }
+    return res.json();
+  }
+
+  /**
+   * Deriva a ATA da Verum treasury para um outputMint e verifica se existe on-chain.
+   * Retorna `undefined` se a ATA não existe — Jupiter rejeita com erro
+   * "feeAccount is required for swap with platformFee" se passarmos endereço inválido,
+   * então melhor omitir e perder a fee até a ATA ser criada manualmente.
+   */
+  async deriveTreasuryFeeAccount(outputMint: string): Promise<string | undefined> {
+    try {
+      const treasury = new PublicKey(assertTreasuryAddress());
+      const mintPk = new PublicKey(outputMint);
+
+      // Descobre se é Token-2022 olhando o owner do mint account.
+      const mintAcc = await this.withRetry((c) => c.getAccountInfo(mintPk, 'confirmed'));
+      const programId = mintAcc?.owner?.equals(TOKEN_2022_PROGRAM_ID)
+        ? TOKEN_2022_PROGRAM_ID
+        : TOKEN_PROGRAM_ID;
+
+      const ata = await getAssociatedTokenAddress(mintPk, treasury, false, programId);
+      const accInfo = await this.withRetry((c) => c.getAccountInfo(ata, 'confirmed'));
+      return accInfo ? ata.toBase58() : undefined;
+    } catch (e: any) {
+      console.warn('[Jupiter Fee] Falha derivando feeAccount:', e?.message ?? e);
+      return undefined;
+    }
+  }
+
+  // ─── getBalances: 2 chamadas RPC totais (getBalance + getParsedTokenAccountsByOwner batch) ──
+  // 100% on-chain — sem dependência do backend Verum Swap. Helius/RPC público lê direto.
   async getBalances(walletAddress: string, tokenMints: Record<string, string>): Promise<BalanceResult> {
     const CACHE_WINDOW = 2000; // 2 segundos de "throttle" no frontend
     const cached = this.balanceCache.get(walletAddress);
@@ -1481,60 +1575,8 @@ class TransactionService {
 
     const balances: Record<string, number> = {};
     const dynamicTokens: DynamicToken[] = [];
-    const knownMints = new Set(Object.values(tokenMints));
-    try {
-      const url = `${SWAP_API_URL}/api/balances/${walletAddress}`;
-      const res = await fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } });
-      if (res.ok) {
-        const data = await res.json();
-        // SOL
-        balances['SOL'] = data.sol ?? 0;
-        
-        // Tokens conhecidos
-        for (const symbol of Object.keys(tokenMints)) balances[symbol] = 0;
-        
-        if (data.tokens && Array.isArray(data.tokens)) {
-          for (const t of data.tokens) {
-            const knownSymbol = Object.entries(tokenMints).find(([, m]) => m === t.mint)?.[0];
-            if (knownSymbol) {
-              balances[knownSymbol] = t.amount;
-            } else if (t.amount > 0) {
-              const symbol = t.mint.substring(0, 6).toUpperCase();
-              dynamicTokens.push({
-                symbol,
-                name: `Token ${symbol}`,
-                mint: t.mint,
-                decimals: t.decimals,
-                balance: t.amount,
-                programId: TOKEN_PROGRAM_ID.toBase58(),
-              });
-            }
-          }
-        }
 
-        // Se o backend retornou 0 SOL, fazemos um double-check on-chain por segurança
-        // (pode ser cache do backend ou lag do RPC do backend)
-        if (balances['SOL'] === 0) {
-          const connection = this.getConnection();
-          const pubkey = new PublicKey(walletAddress);
-          const solLamps = await this.withRetry((c) => c.getBalance(pubkey));
-          const realSol = solLamps / LAMPORTS_PER_SOL;
-          if (realSol > 0) {
-            balances['SOL'] = realSol;
-          }
-        }
-
-        const result = { balances, dynamicTokens };
-        this.balanceCache.set(walletAddress, { data: result, timestamp: Date.now() });
-        return result;
-      }
-    } catch (e) {
-      console.warn('[TransactionService] Falha ao buscar saldos do backend. Verifique se o servidor Verum Swap está rodando.');
-    }
-    
-    // 2. Fallback: On-chain direto (mais lento, mas autoritativo)
     try {
-      const connection = this.getConnection();
       const pubkey = new PublicKey(walletAddress);
 
       // Busca SOL + Token Accounts (Token & Token-2022) em paralelo

@@ -102,7 +102,7 @@ export default function ExportarChavePrivadaScreen() {
 
         {isRevealed ? (
           <View style={styles.keyBox}>
-            <Text style={styles.keyText}>{privateKey}</Text>
+            <Text style={styles.keyText} selectable>{privateKey}</Text>
             <TouchableOpacity style={styles.copyBtn} onPress={copyToClipboard}>
               <Feather name={copied ? "check" : "copy"} size={18} color={copied ? V.success : V.gold} />
               <Text style={[styles.copyBtnText, copied && { color: V.success }]}>
@@ -154,8 +154,19 @@ const styles = StyleSheet.create({
   description: { fontSize: 13, fontFamily: F.body, color: V.muted, textAlign: 'center', lineHeight: 22 },
   revealBtn: { width: '100%', height: 60, backgroundColor: V.gold, borderRadius: V.r8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, ...V.shadow },
   revealBtnText: { color: V.bg, fontSize: 15, fontFamily: F.bold, letterSpacing: 1 },
-  keyBox: { width: '100%', padding: 24, backgroundColor: V.surface1, borderRadius: V.r12, borderWidth: 1, borderColor: V.gold, alignItems: 'center', ...V.shadow },
-  keyText: { fontSize: 13, color: V.text, textAlign: 'center', lineHeight: 20, marginBottom: 24, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  keyBox: { width: '100%', padding: 24, backgroundColor: V.surface1, borderRadius: V.r12, borderWidth: 1, borderColor: V.gold, alignItems: 'center', overflow: 'hidden', ...V.shadow },
+  keyText: {
+    fontSize: 13,
+    color: V.text,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    width: '100%',
+    // Em RN Web, Text vira <div> e string base58 sem espaços não quebra sozinha —
+    // forçamos quebra por caractere.
+    ...(Platform.OS === 'web' ? ({ wordBreak: 'break-all', overflowWrap: 'anywhere' } as any) : null),
+  },
   copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: V.surface2, paddingHorizontal: 20, paddingVertical: 10, borderRadius: V.r20, borderWidth: 1, borderColor: V.border },
   copyBtnText: { fontSize: 12, fontFamily: F.bold, color: V.gold, letterSpacing: 1 },
   warningCard: { width: '100%', marginTop: 40, padding: 20, backgroundColor: 'rgba(231, 76, 60, 0.05)', borderRadius: V.r12, borderLeftWidth: 4, borderLeftColor: V.danger, flexDirection: 'row', gap: 16, borderWidth: 1, borderColor: 'rgba(231, 76, 60, 0.1)' },

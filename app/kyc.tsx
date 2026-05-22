@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 12, fontFamily: F.title, color: V.gold, letterSpacing: 1.5 },
 
   row: { flexDirection: 'row', gap: 10 },
-  fieldGroup: { marginBottom: 16 },
+  fieldGroup: { marginBottom: 16, minWidth: 0 },
   label: { fontSize: 10, fontFamily: F.bold, color: V.muted, letterSpacing: 1, marginBottom: 6, marginLeft: 2 },
   inputWrapper: {
     backgroundColor: V.surface2,
@@ -480,6 +480,8 @@ const styles = StyleSheet.create({
     borderColor: V.border,
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'hidden',
+    minWidth: 0,
   },
   selectWrapper: { justifyContent: 'space-between' },
   inputError: { borderColor: '#E74C3C', backgroundColor: 'rgba(231,76,60,0.05)' },
@@ -490,6 +492,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   errorText: { fontSize: 10, fontFamily: F.bold, color: '#E74C3C', marginTop: 4, marginLeft: 2 },
 

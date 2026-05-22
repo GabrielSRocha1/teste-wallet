@@ -20,7 +20,6 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import type { ParsedAccountData } from '@solana/web3.js';
 import transactionService, { TOKEN_MINTS_MAINNET } from './transactionService';
-import { SWAP_API_URL } from './apiUrl';
 
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -55,9 +54,6 @@ export interface TokenPrice {
 }
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
-
-const JUPITER_PRICE_API = `${SWAP_API_URL}/api/prices`;
-
 
 // Mints de referência (mainnet)
 const MINT_SOL_NATIVE = 'So11111111111111111111111111111111111111112';
@@ -265,85 +261,84 @@ class BlockchainSyncService {
   // ══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Busca preços de mercado via Jupiter Price API (v6).
-   * Retorna preços em USD para: SOL, USDT, USDC, BDC, ESCT, BRT
-   *
-   * Fallback: CoinGecko para SOL, USDT, USDC (moedas comuns)
+   * Busca preços de mercado direto das APIs públicas (sem backend).
+   * Estratégia idêntica à do SettingsContext: Binance + CoinGecko + DexScreener
+   * em paralelo, merge com prioridade Binance > CoinGecko (majors),
+   * DexScreener autoritativo pra tokens internos (BDC/ESCT/BRT).
    */
   async fetchMarketPrices(): Promise<Record<string, number>> {
     const prices: Record<string, number> = {};
+    const mints = TOKEN_MINTS_MAINNET;
 
-    try {
-      // Monta a lista de IDs para consulta — mint addresses + SOL nativo
-      const mints = TOKEN_MINTS_MAINNET;
-      const mintList = [
-        MINT_SOL_NATIVE,
-        mints.USDT.mint,
-        mints.USDC.mint,
-        mints.BDC.mint,
-        mints.ESCT.mint,
-        mints.BRT.mint,
-      ].join(',');
+    const internalMints = [mints.BDC.mint, mints.ESCT.mint, mints.BRT.mint];
+    const coingeckoIds = ['solana', 'tether', 'usd-coin', 'bitcoin', 'ethereum', 'binancecoin'];
+    const COINGECKO_TO_SYM: Record<string, string> = {
+      solana: 'SOL', tether: 'USDT', 'usd-coin': 'USDC',
+      bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
+    };
 
-      const url = `${JUPITER_PRICE_API}?ids=${mintList}`;
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json', 'ngrok-skip-browser-warning': '1' },
-        signal: AbortSignal.timeout(10_000),
-      });
+    const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+      fetch(
+        `https://api.binance.com/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
+        { signal: AbortSignal.timeout(8_000) },
+      ).then(r => r.ok ? r.json() : []),
+      fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd`,
+        { signal: AbortSignal.timeout(8_000) },
+      ).then(r => r.ok ? r.json() : {}),
+      fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
+        { signal: AbortSignal.timeout(8_000) },
+      ).then(r => r.ok ? r.json() : { pairs: [] }),
+    ]);
 
-      if (!res.ok) throw new Error(`Jupiter API retornou ${res.status}`);
-
-      const data = await res.json();
-      const priceData = data?.prices ?? {};
-
-      // Mapeia mint → símbolo e extrai preço
-      const mintToSymbol: Record<string, string> = {
-        [MINT_SOL_NATIVE]: 'SOL',
-        [mints.USDT.mint]: 'USDT',
-        [mints.USDC.mint]: 'USDC',
-        [mints.BDC.mint]:  'BDC',
-        [mints.ESCT.mint]: 'ESCT',
-        [mints.BRT.mint]:  'BRT',
-      };
-
-      for (const [mint, sym] of Object.entries(mintToSymbol)) {
-        const val = priceData[mint];
-        if (val !== undefined) {
-          // O proxy retorna o número direto, mas suportamos o formato antigo por segurança
-          prices[sym] = typeof val === 'number' ? val : parseFloat(val.price || '0');
-        }
+    // Binance — majors em tempo quase real
+    if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
+      for (const item of binanceRes.value as { symbol: string; price: string }[]) {
+        const sym = item.symbol.replace('USDT', '');
+        const p = parseFloat(item.price);
+        if (p > 0) prices[sym] = p;
       }
-
-
-      // Garantia: USDT e USDC sempre valem ~$1 se Jupiter não retornar
-      if (!prices.USDT || prices.USDT < 0.9 || prices.USDT > 1.1) prices.USDT = 1.0;
-      if (!prices.USDC || prices.USDC < 0.9 || prices.USDC > 1.1) prices.USDC = 1.0;
-
-      console.log('[BlockchainSync] ✅ Preços carregados via Jupiter:', Object.keys(prices).join(', '));
-    } catch (jupiterErr) {
-      console.warn('[BlockchainSync] Jupiter API falhou, tentando CoinGecko fallback:', jupiterErr);
-
-      // Fallback CoinGecko para moedas comuns
-      try {
-        const cgRes = await fetch(
-          'https://api.coingecko.com/api/v3/simple/price?ids=solana,tether,usd-coin&vs_currencies=usd&include_24hr_change=true',
-          { signal: AbortSignal.timeout(8_000) }
-        );
-        if (cgRes.ok) {
-          const cgData = await cgRes.json();
-          if (cgData.solana?.usd)    prices.SOL  = cgData.solana.usd;
-          if (cgData.tether?.usd)    prices.USDT = cgData.tether.usd;
-          if (cgData['usd-coin']?.usd) prices.USDC = cgData['usd-coin'].usd;
-        }
-      } catch (cgErr) {
-        console.warn('[BlockchainSync] CoinGecko fallback também falhou:', cgErr);
-      }
-
-      // Defaults seguros para stablecoins
-      if (!prices.USDT) prices.USDT = 1.0;
-      if (!prices.USDC) prices.USDC = 1.0;
     }
 
+    // CoinGecko — preenche gaps que Binance não trouxe
+    if (coingeckoRes.status === 'fulfilled') {
+      const cg = coingeckoRes.value as Record<string, { usd?: number }>;
+      for (const [id, obj] of Object.entries(cg || {})) {
+        const sym = COINGECKO_TO_SYM[id];
+        if (sym && !prices[sym] && obj?.usd) prices[sym] = obj.usd;
+      }
+    }
+
+    // DexScreener — única fonte pra tokens internos; pega pair de maior liquidez por mint
+    if (dexRes.status === 'fulfilled') {
+      const dex = dexRes.value as { pairs?: any[] };
+      const mintToSym: Record<string, string> = {
+        [mints.BDC.mint]: 'BDC',
+        [mints.ESCT.mint]: 'ESCT',
+        [mints.BRT.mint]: 'BRT',
+      };
+      const bestPerMint: Record<string, { price: number; liq: number }> = {};
+      for (const pair of dex.pairs ?? []) {
+        const mint = pair?.baseToken?.address;
+        const price = parseFloat(pair?.priceUsd ?? '0');
+        const liq = pair?.liquidity?.usd ?? 0;
+        if (!mint || price <= 0) continue;
+        if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
+          bestPerMint[mint] = { price, liq };
+        }
+      }
+      for (const [mint, { price }] of Object.entries(bestPerMint)) {
+        const sym = mintToSym[mint];
+        if (sym) prices[sym] = price;
+      }
+    }
+
+    // Stablecoins: força $1 se nada respondeu
+    if (!prices.USDT || prices.USDT < 0.9 || prices.USDT > 1.1) prices.USDT = 1.0;
+    if (!prices.USDC || prices.USDC < 0.9 || prices.USDC > 1.1) prices.USDC = 1.0;
+
+    console.log('[BlockchainSync] ✅ Preços diretos:', Object.keys(prices).join(', '));
     return prices;
   }
 

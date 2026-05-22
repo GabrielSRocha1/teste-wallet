@@ -380,8 +380,34 @@ export default function LoginScreen() {
   };
 
   const handlePasteMnemonic = async () => {
-    const content = await Clipboard.getStringAsync();
-    if (content) setRecoveryMnemonic(content);
+    try {
+      let content = '';
+      // Em browsers o expo-clipboard depende de navigator.clipboard.readText.
+      // Se a permissão foi negada antes, getStringAsync devolve '' silenciosamente —
+      // vamos primeiro tentar a API nativa direto pra distinguir vazio vs bloqueado.
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+        content = await navigator.clipboard.readText();
+      } else {
+        content = await Clipboard.getStringAsync();
+      }
+
+      const cleaned = (content ?? '').replace(/\s+/g, ' ').trim();
+      if (!cleaned) {
+        showAlert(
+          t('Área de transferência vazia'),
+          t('Copie a frase de recuperação antes de tocar em "COLAR FRASE".'),
+        );
+        return;
+      }
+
+      setRecoveryMnemonic(cleaned);
+    } catch (err) {
+      console.warn('[login] paste mnemonic failed:', err);
+      showAlert(
+        t('Não foi possível colar'),
+        t('Permita o acesso à área de transferência nas configurações do navegador, ou cole manualmente no campo (toque longo no input → Colar).'),
+      );
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────

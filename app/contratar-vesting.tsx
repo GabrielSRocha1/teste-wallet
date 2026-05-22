@@ -26,8 +26,10 @@ import { V, F } from '@/constants/theme';
 import { useSettings } from '@/constants/SettingsContext';
 
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as Clipboard from 'expo-clipboard';
 import keyManager from '@/src/services/keyManager';
 import transactionService, { VERUM_TREASURY_ADDRESS } from '@/src/services/transactionService';
+import { getApiBaseUrl } from '@/src/services/apiUrl';
 import { Keypair } from '@solana/web3.js';
 
 const DURATION_MONTHS = 60;
@@ -58,8 +60,16 @@ export default function ContratarVestingScreen() {
 
   const [isSidebarVisible, setSidebarVisible] = useState(false);
   const [usdAmount, setUsdAmount] = useState('');
+  const [brlAmount, setBrlAmount] = useState('');
   const [isDisclaimerChecked, setIsDisclaimerChecked] = useState(false);
   const [beneficiaryName, setBeneficiaryName] = useState('');
+
+  // Pix QR (gerado via /api/picpay)
+  const [isPixModalVisible, setIsPixModalVisible] = useState(false);
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
+  const [pixQrContent, setPixQrContent] = useState<string | null>(null);
+  const [pixOrderId, setPixOrderId] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
@@ -146,13 +156,122 @@ export default function ContratarVestingScreen() {
     setIsPaymentModalVisible(true);
   };
 
-  const handleSelectPix = () => {
+  const parseBrlInput = (raw: string): number => {
+    // Aceita "1.234,56" (pt-BR) ou "1234.56" — o CurrencyConverter devolve no
+    // formato pt-BR via toLocaleString.
+    const cleaned = (raw || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+  };
+
+  const handleSelectPix = async () => {
+    const brlValue = parseBrlInput(brlAmount);
+
+    if (brlValue < 35) {
+      Alert.alert(
+        t('Valor mínimo'),
+        t('O valor mínimo de pagamento via PIX é R$ 35,00. Ajuste o valor antes de continuar.'),
+      );
+      return;
+    }
+
     setIsPaymentModalVisible(false);
-    Alert.alert(
-      t('Pagamento via PIX'),
-      t('O pagamento via PIX está disponível. Entre em contato com o suporte Verum para ativar seu contrato com PIX.\n\nWhatsApp: (11) 99999-9999'),
-      [{ text: t('OK'), style: 'default' }]
-    );
+    setIsGeneratingPix(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error(t('Usuário não autenticado.'));
+
+      // PicPay exige CPF/email/telefone — buscamos perfil e KYC em paralelo.
+      const [profileRes, kycRes] = await Promise.all([
+        supabase
+          .from('usuarios')
+          .select('wallet_address, nome_completo, email, telefone')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('kyc_profiles')
+          .select('cpf, nome, sobrenome')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ]);
+      const profile = profileRes.data as any;
+      const kyc = kycRes.data as any;
+
+      if (!kyc?.cpf) {
+        throw new Error(t('Conclua a verificação de identidade (KYC) antes de pagar via PIX.'));
+      }
+
+      const newOrderId = `vest-${user.id}-${Date.now()}`;
+
+      // Pré-registra o pedido no banco antes de chamar PicPay (idempotência
+      // se a chamada cair: webhook usa picpay_reference pra reconciliar).
+      const { error: dbError } = await supabase.from('deposit_orders').insert({
+        id: newOrderId,
+        user_id: user.id,
+        wallet_address: profile?.wallet_address ?? userWallet,
+        amount_brl: brlValue,
+        expected_usdt: valorInvestimento,
+        exchange_rate: 0,
+        provider: 'pix',
+        status: 'pending',
+        saga_step: 'PIX_CREATED',
+        expires_at: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
+      });
+      if (dbError) throw new Error(dbError.message);
+
+      const fullName = (
+        profile?.nome_completo ||
+        [kyc?.nome, kyc?.sobrenome].filter(Boolean).join(' ') ||
+        beneficiaryName ||
+        ''
+      ).trim();
+      const [firstName, ...rest] = fullName.split(' ');
+
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/picpay?action=create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: brlValue,
+          referenceId: newOrderId,
+          buyer: {
+            firstName: firstName || 'Investidor',
+            lastName: rest.join(' ') || 'Verum',
+            document: kyc.cpf,
+            email: profile?.email || user.email,
+            phone: profile?.telefone || '+55 11 99999-9999',
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`PicPay ${res.status}: ${errText.slice(0, 200) || t('falha desconhecida')}`);
+      }
+      const data = await res.json();
+
+      if (!data?.qrcode?.base64) {
+        throw new Error(t('QR Code PIX não retornado pelo gateway.'));
+      }
+
+      setPixQrBase64(data.qrcode.base64);
+      setPixQrContent(data.qrcode.content ?? null);
+      setPixOrderId(newOrderId);
+      setIsPixModalVisible(true);
+    } catch (e: any) {
+      Alert.alert(
+        t('Falha ao gerar PIX'),
+        e?.message || t('Erro inesperado ao criar a cobrança PIX. Tente novamente.'),
+      );
+    } finally {
+      setIsGeneratingPix(false);
+    }
+  };
+
+  const handleCopyPixCode = async () => {
+    if (!pixQrContent) return;
+    await Clipboard.setStringAsync(pixQrContent);
+    Alert.alert('', t('Código PIX copiado!'));
   };
 
   const handleSelectWallet = async () => {
@@ -339,6 +458,7 @@ export default function ContratarVestingScreen() {
           {/* Calculadora de Câmbio */}
           <CurrencyConverter
             onUSDValueChange={(v) => setUsdAmount(v)}
+            onBRLValueChange={(v) => setBrlAmount(v)}
           />
 
           {/* Configuração do Contrato */}
@@ -448,15 +568,27 @@ export default function ContratarVestingScreen() {
             <Text style={styles.pSubtitle}>{t('Escolha como deseja ativar seu contrato:')}</Text>
 
             {/* Opção PIX */}
-            <TouchableOpacity style={styles.paymentOption} onPress={handleSelectPix} activeOpacity={0.75}>
+            <TouchableOpacity
+              style={[styles.paymentOption, isGeneratingPix && { opacity: 0.6 }]}
+              onPress={handleSelectPix}
+              activeOpacity={0.75}
+              disabled={isGeneratingPix}
+            >
               <View style={[styles.paymentOptionIcon, { backgroundColor: 'rgba(46,204,113,0.12)', borderColor: 'rgba(46,204,113,0.3)' }]}>
                 <Feather name="grid" size={22} color={V.success} />
               </View>
               <View style={styles.paymentOptionInfo}>
                 <Text style={styles.paymentOptionTitle}>{t('Pagar com PIX')}</Text>
-                <Text style={styles.paymentOptionSub}>{t('Ativação instantânea via QR Code')}</Text>
+                <Text style={styles.paymentOptionSub}>
+                  {brlAmount
+                    ? `R$ ${brlAmount} — ${t('Ativação instantânea via QR Code')}`
+                    : t('Ativação instantânea via QR Code')}
+                </Text>
               </View>
-              <Feather name="chevron-right" size={20} color={V.muted} />
+              {isGeneratingPix
+                ? <ActivityIndicator size="small" color={V.gold} />
+                : <Feather name="chevron-right" size={20} color={V.muted} />
+              }
             </TouchableOpacity>
 
             {/* Opção Saldo da Wallet */}
@@ -543,6 +675,80 @@ export default function ContratarVestingScreen() {
               <Text style={styles.btnText}>{t('VOLTAR PARA INÍCIO')}</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+      {/* Modal — PIX QR Code */}
+      <Modal visible={isPixModalVisible} transparent animationType="slide">
+        <View style={styles.mOverlay}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', width: '100%' }}
+            style={{ width: '100%' }}
+          >
+            <View style={styles.mContent}>
+              <Text style={styles.mTitle}>{t('PAGAR VIA PIX')}</Text>
+              <Text style={styles.mDesc}>
+                {t('Escaneie o QR Code ou copie o código no seu app bancário. Validade: 30 minutos.')}
+              </Text>
+
+              {pixQrBase64 && (
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <View style={{ padding: 12, backgroundColor: V.surface2, borderRadius: V.r12, borderWidth: 1, borderColor: V.border }}>
+                    <Image
+                      source={{ uri: pixQrBase64 }}
+                      style={{ width: 220, height: 220 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                  <Text style={{ color: V.gold, fontFamily: F.bold, fontSize: 18, marginTop: 16 }}>
+                    R$ {brlAmount || parseBrlInput(brlAmount).toFixed(2)}
+                  </Text>
+                </View>
+              )}
+
+              {pixQrContent && (
+                <TouchableOpacity
+                  onPress={handleCopyPixCode}
+                  style={{
+                    backgroundColor: V.surface2,
+                    padding: 14,
+                    borderRadius: V.r8,
+                    marginBottom: 16,
+                    borderWidth: 1,
+                    borderColor: V.border,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ color: V.gold, fontSize: 10, fontFamily: F.bold, letterSpacing: 1 }}>
+                      {t('CÓDIGO COPIA E COLA')}
+                    </Text>
+                    <Feather name="copy" size={14} color={V.gold} />
+                  </View>
+                  <Text style={{ color: V.text, fontSize: 11, fontFamily: F.body }} numberOfLines={3}>
+                    {pixQrContent}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {pixOrderId && (
+                <Text style={{ color: V.muted, fontSize: 10, marginBottom: 16, textAlign: 'center' }}>
+                  {t('Referência:')} {pixOrderId}
+                </Text>
+              )}
+
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={() => {
+                  setIsPixModalVisible(false);
+                  setPixQrBase64(null);
+                  setPixQrContent(null);
+                  setPixOrderId(null);
+                }}
+              >
+                <Text style={styles.btnText}>{t('FECHAR')}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
 

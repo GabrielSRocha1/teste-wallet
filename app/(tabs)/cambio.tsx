@@ -16,7 +16,6 @@ import type { RaydiumSwapQuote } from '@/src/services/transactionService';
 
 import { useSolanaWallet } from '@/src/hooks/useSolanaWallet';
 import { useRealtimeBalances } from '@/src/hooks/useRealtimeBalances';
-import { SWAP_API_URL } from '@/src/services/apiUrl';
 import { translateError } from '@/src/utils/error-translator';
 
 if (typeof global.Buffer === 'undefined') { global.Buffer = Buffer; }
@@ -91,8 +90,8 @@ export default function CambioScreen() {
   const [swapRoute, setSwapRoute] = useState<string>('');
   const quoteTimer = useRef<any>(null);
 
-  // O backend de swap (verum-swap) agora centraliza as chamadas ao Jupiter
-  const JUPITER_API = SWAP_API_URL;
+  // Verum fee em basis points (200 = 2%). Aplicada via Jupiter platformFeeBps.
+  const VERUM_FEE_BPS = 200;
 
   const loadUserAndBalances = useCallback(async () => {
     try {
@@ -234,36 +233,26 @@ export default function CambioScreen() {
 
     let jupiterErr: string | null = null;
 
-    // 1. Jupiter via Backend Verum (Port 3001) — POST /api/swap/quote
+    // 1. Jupiter v6 direto (sem backend) — quote-api.jup.ag/v6/quote
     try {
-      console.log(`[Cambio] Buscando cotação Jupiter Backend: ${inputMint} -> ${outputMint} (amt: ${amountRaw})`);
-      const res = await fetch(`${JUPITER_API}/api/swap/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-        body: JSON.stringify({
-          inputMint,
-          outputMint,
-          amount: String(amountRaw),
-          slippageBps: 50,
-        }),
-        signal: AbortSignal.timeout(10_000),
+      console.log(`[Cambio] Buscando cotação Jupiter direto: ${inputMint} -> ${outputMint} (amt: ${amountRaw})`);
+      const jq = await transactionService.jupiterQuote({
+        inputMint,
+        outputMint,
+        amount: amountRaw,
+        slippageBps: 50,
+        platformFeeBps: VERUM_FEE_BPS,
       });
-      if (res.ok) {
-        const payload = await res.json();
-        const jq = payload?.quote;
-        if (jq?.outAmount && !payload?.error) {
-          const finalToAmount = (Number(BigInt(jq.outAmount)) / Math.pow(10, outDecimals)).toFixed(outDecimals > 6 ? 6 : 2);
-          console.log(`[Cambio] Cotação Jupiter SUCESSO: ${finalToAmount} ${toToken.symbol}`);
-          setQuote({ provider: 'jupiter', priceImpactPct: parseFloat(jq.priceImpactPct ?? '0'), slippageBps: 50, jupiterRaw: jq });
-          setQuoteAt(Date.now());
-          setToAmount(finalToAmount);
-          setIsFetchingQuote(false);
-          return;
-        } else {
-          console.warn('[Cambio] Resposta Jupiter inválida ou com erro:', payload);
-        }
+      if (jq?.outAmount && !jq?.error) {
+        const finalToAmount = (Number(BigInt(jq.outAmount)) / Math.pow(10, outDecimals)).toFixed(outDecimals > 6 ? 6 : 2);
+        console.log(`[Cambio] Cotação Jupiter SUCESSO: ${finalToAmount} ${toToken.symbol}`);
+        setQuote({ provider: 'jupiter', priceImpactPct: parseFloat(jq.priceImpactPct ?? '0'), slippageBps: 50, jupiterRaw: jq });
+        setQuoteAt(Date.now());
+        setToAmount(finalToAmount);
+        setIsFetchingQuote(false);
+        return;
       } else {
-        console.warn(`[Cambio] Erro HTTP ${res.status} no Jupiter Backend`);
+        console.warn('[Cambio] Resposta Jupiter inválida ou com erro:', jq);
       }
     } catch (e: any) {
       jupiterErr = e?.message || String(e);
@@ -369,29 +358,35 @@ export default function CambioScreen() {
 
         setLoadingStep(t('Obtendo transação Jupiter...'));
         const { VersionedTransaction } = require('@solana/web3.js');
-        
-        const swapRes = await withTimeout(fetch(`${SWAP_API_URL}/api/swap/build`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-          body: JSON.stringify({
-            quoteResponse: quote.jupiterRaw,
+
+        // Deriva feeAccount da treasury só se a ATA já existe — Jupiter rejeita
+        // o swap se passarmos endereço inexistente. Se não existir, swap segue
+        // sem fee routing (mesma política do backend antigo).
+        const feeAccount = await transactionService.deriveTreasuryFeeAccount(toToken.mint!);
+        // Se a treasury não tem ATA pro outputMint, removemos `platformFee` do
+        // quoteResponse — caso contrário Jupiter rejeita com NOT_SUPPORTED
+        // ("feeAccount is required for swap with platformFee").
+        const effectiveQuote =
+          feeAccount === undefined && quote.jupiterRaw?.platformFee
+            ? { ...quote.jupiterRaw, platformFee: undefined }
+            : quote.jupiterRaw;
+
+        const swapData = await withTimeout(
+          transactionService.jupiterBuildSwap({
+            quoteResponse: effectiveQuote,
             userPublicKey: keypair.publicKey.toBase58(),
             wrapAndUnwrapSol: true,
+            feeAccount,
           }),
-          signal: AbortSignal.timeout(20_000),
-        }), 20000);
+          20000,
+        );
 
-        if (!swapRes.ok) {
-          throw new Error(`Jupiter swap falhou: ${swapRes.status}`);
-        }
-
-        const swapData = await swapRes.json();
-        if (!swapData.serializedTx) {
-            throw new Error('Erro ao obter transação de swap do backend.');
+        if (!swapData?.swapTransaction) {
+          throw new Error('Jupiter não retornou swapTransaction.');
         }
 
         setLoadingStep(t('Assinando transação...'));
-        const tx = VersionedTransaction.deserialize(Buffer.from(swapData.serializedTx, 'base64'));
+        const tx = VersionedTransaction.deserialize(Buffer.from(swapData.swapTransaction, 'base64'));
 
         // Refresh blockhash antes de assinar — previne expiração entre Jupiter build → modal senha → broadcast
         const conn = transactionService.getConnectionForNetwork(network);
@@ -801,7 +796,7 @@ export default function CambioScreen() {
                    {quoteError}
                  </Text>
                  <Text style={[styles.quotePillT, {color: V.muted, fontSize: 9}]} numberOfLines={1}>
-                   API: {JUPITER_API}
+                   API: Jupiter v6
                  </Text>
                </View>
              ) : null

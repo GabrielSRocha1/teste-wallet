@@ -248,8 +248,6 @@ export default function RootLayout() {
                   <Stack.Screen name="dapp-hub" options={{ headerShown: false }} />
                   <Stack.Screen name="connected-apps" options={{ headerShown: false, animation: 'slide_from_right' }} />
                   <Stack.Screen name="kyc" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                  <Stack.Screen name="kyc-documento" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                  <Stack.Screen name="kyc-facial" options={{ headerShown: false, animation: 'slide_from_right' }} />
                 </Stack>
               ) : null}
             </View>

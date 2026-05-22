@@ -124,7 +124,7 @@ export async function syncKycStatus(): Promise<{
     if (!session) throw new Error('Sessão expirada. Faça login novamente.');
 
     const apiBase = getApiBaseUrl();
-    const response = await fetch(`${apiBase}/kyc/check-status`, {
+    const response = await fetch(`${apiBase}/api/kyc?action=check-status`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
@@ -156,9 +156,9 @@ export async function initiateKyc(_userId: string): Promise<{
     if (!session) throw new Error('Sessão expirada. Faça login novamente.');
 
     const apiBase = getApiBaseUrl();
-    console.log('[KYC] Iniciando requisição para:', `${apiBase}/kyc/initiate`);
+    console.log('[KYC] Iniciando requisição para:', `${apiBase}/api/kyc?action=initiate`);
 
-    const response = await fetch(`${apiBase}/kyc/initiate`, {
+    const response = await fetch(`${apiBase}/api/kyc?action=initiate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,

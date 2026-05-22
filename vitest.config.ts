@@ -15,7 +15,6 @@ export default defineConfig({
     globals: false,
     include: [
       'src/**/*.{test,spec}.ts',
-      'verum-swap/backend/**/*.{test,spec}.ts',
       'api/**/*.{test,spec}.ts',
     ],
     exclude: [
@@ -30,7 +29,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/**/*.ts', 'verum-swap/backend/src/**/*.ts', 'api/**/*.ts'],
+      include: ['src/**/*.ts', 'api/**/*.ts'],
       exclude: [
         '**/__tests__/**',
         '**/*.{test,spec}.ts',

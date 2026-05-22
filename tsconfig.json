@@ -16,8 +16,6 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "verum-swap/backend",
-    "verum-swap/frontend",
     "node_modules",
     "dist",
     ".expo"
