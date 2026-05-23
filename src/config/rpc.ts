@@ -84,6 +84,41 @@ export const PUBLIC_FALLBACK_RPCS: readonly string[] = [
   'https://solana.public-rpc.com',
 ];
 
-/** Endpoint resolvido no boot. Importadores devem usar este valor cacheado. */
-export const MAINNET_RPC = resolveMainnetRpc();
-export const MAINNET_WS = resolveMainnetWsEndpoint();
+/**
+ * Endpoint mainnet resolvido sob demanda (lazy).
+ *
+ * IMPORTANTE: NÃO transformar em `const X = resolveMainnetRpc()` no top-level
+ * do módulo. O Expo Web é exportado como bundle estático (`expo export
+ * --platform web`), e top-level code roda em build time no Node — onde
+ * `window` não existe e nenhum `EXPO_PUBLIC_*` opcional foi setado. O
+ * resultado: o valor errado (api.mainnet-beta.solana.com) fica baked no
+ * bundle e o cliente bate direto no RPC público em produção.
+ *
+ * Resolvendo lazy, o cálculo acontece no primeiro uso DENTRO do browser,
+ * onde `window.location.origin` já existe e a fallback chain funciona.
+ *
+ * Cacheamos a primeira chamada bem-sucedida no browser pra não recomputar.
+ */
+let _cachedMainnetRpc: string | undefined;
+let _cachedMainnetWs: string | undefined | null = null; // null = ainda não computou
+
+export function getMainnetRpc(): string {
+  if (_cachedMainnetRpc) return _cachedMainnetRpc;
+  const resolved = resolveMainnetRpc();
+  // Só cacheia se NÃO caiu no fallback público — assim, se a primeira chamada
+  // for em SSR (sem window) e cair em api.mainnet-beta, a próxima chamada
+  // no browser tem chance de re-resolver com window.location.origin.
+  if (!resolved.includes('api.mainnet-beta.solana.com')) {
+    _cachedMainnetRpc = resolved;
+  }
+  return resolved;
+}
+
+export function getMainnetWs(): string | undefined {
+  if (_cachedMainnetWs !== null) return _cachedMainnetWs;
+  _cachedMainnetWs = resolveMainnetWsEndpoint();
+  return _cachedMainnetWs;
+}
+
+// Removido: `const MAINNET_RPC = resolveMainnetRpc()` no top-level era a
+// causa do bug em produção. Importe `getMainnetRpc()` em vez disso.

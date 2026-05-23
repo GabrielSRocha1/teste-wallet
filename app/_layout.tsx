@@ -49,9 +49,13 @@ export const unstable_settings = {
   initialRouteName: 'login',
 };
 
-import { MAINNET_RPC } from '@/src/config/rpc';
+import { getMainnetRpc } from '@/src/config/rpc';
 
-const SOLANA_RPC_ENDPOINT = MAINNET_RPC;
+// Resolução lazy — só roda quando este módulo é importado em runtime no
+// browser (onde window.location.origin existe). Em build estático Node,
+// `window` é undefined e o fallback cairia em api.mainnet-beta.solana.com,
+// baked no bundle pra sempre.
+const SOLANA_RPC_ENDPOINT = getMainnetRpc();
 
 const WALLET_ADAPTERS: Adapter[] = [];
 

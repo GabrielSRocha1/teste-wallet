@@ -19,8 +19,8 @@ import { toAtomicUnits, applyFeeBps } from './_internal/amount';
 import { assertSolanaPubkey } from './_internal/input-validation';
 import {
   DEVNET_RPC,
-  MAINNET_RPC,
-  MAINNET_WS,
+  getMainnetRpc,
+  getMainnetWs,
   PUBLIC_FALLBACK_RPCS,
 } from '@/src/config/rpc';
 
@@ -308,16 +308,16 @@ export const TOKEN_MINTS: Record<string, string> = Object.fromEntries(
 
 let currentPublicIdx = 0;
 
-/** Retorna o RPC correto para a rede. */
+/** Retorna o RPC correto para a rede. Resolução lazy — só roda no browser. */
 function rpcForNetwork(network: 'mainnet' | 'devnet', forcePublic = false): string {
   if (network === 'devnet') return DEVNET_RPC;
   if (forcePublic) return PUBLIC_FALLBACK_RPCS[currentPublicIdx];
-  return MAINNET_RPC;
+  return getMainnetRpc();
 }
 
 function wsEndpointForNetwork(network: 'mainnet' | 'devnet'): string | undefined {
   if (network === 'devnet') return undefined;
-  return MAINNET_WS;
+  return getMainnetWs();
 }
 
 
