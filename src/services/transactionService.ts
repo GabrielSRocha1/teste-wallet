@@ -17,6 +17,12 @@ import { withRetry, isRetryableRpcError } from './_internal/retry';
 import { CircuitBreaker, CircuitOpenError } from './_internal/circuit-breaker';
 import { toAtomicUnits, applyFeeBps } from './_internal/amount';
 import { assertSolanaPubkey } from './_internal/input-validation';
+import {
+  DEVNET_RPC,
+  MAINNET_RPC,
+  MAINNET_WS,
+  PUBLIC_FALLBACK_RPCS,
+} from '@/src/config/rpc';
 
 const log = createLogger('TransactionService');
 
@@ -296,88 +302,22 @@ export const TOKEN_MINTS: Record<string, string> = Object.fromEntries(
 );
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
-// REGRA: use SEMPRE a variável específica da rede.
-// EXPO_PUBLIC_SOLANA_RPC (genérica) foi removida — não há RPC "universal".
-// devnet  → EXPO_PUBLIC_SOLANA_RPC_DEVNET
-// mainnet → EXPO_PUBLIC_SOLANA_RPC_MAINNET
-
-const DEVNET_RPC = process.env.EXPO_PUBLIC_SOLANA_RPC_DEVNET ?? 'https://api.devnet.solana.com';
-
-// ─── Proxy resolution ────────────────────────────────────────────────────────
-// O default DEPLOY é o proxy /api/solana-rpc (Vercel function que repassa pro
-// Helius com chave server-side). Isso evita que RPCs públicos bloqueiem
-// `getTokenAccountsByOwner` com 403 e mantém a chave fora do bundle.
-//
-// Para overrride explícito (dev local, RPC privado próprio), basta setar
-// `EXPO_PUBLIC_SOLANA_RPC_MAINNET` ou `EXPO_PUBLIC_HELIUS_*`.
-
-function resolveProxyBase(): string {
-  // 1. EXPO_PUBLIC_API_URL — definida no .env / painel Vercel
-  const envBase = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (envBase) return envBase.replace(/\/+$/, '');
-
-  // 2. window.location.origin no web — same-origin sem env var
-  if (typeof window !== 'undefined' && (window as any).location?.origin) {
-    return (window as any).location.origin;
-  }
-
-  // 3. Sem base — caller pode tratar como ausente (string vazia)
-  return '';
-}
-
-function resolveMainnetRpc(): string {
-  // Prioridade:
-  //   1. Override explícito (raro — dev avançado / RPC próprio)
-  const explicit = process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET?.trim();
-  if (explicit) return explicit;
-
-  //   2. Helius URL completa (legado .env.local)
-  const heliusUrl = process.env.EXPO_PUBLIC_HELIUS_RPC_URL?.trim();
-  if (heliusUrl) return heliusUrl;
-
-  //   3. Helius via chave EXPO_PUBLIC_ (chave PÚBLICA — tier free)
-  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
-  if (heliusKey) return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
-
-  //   4. Proxy /api/solana-rpc no nosso próprio domínio (default seguro)
-  const base = resolveProxyBase();
-  if (base) return `${base}/api/solana-rpc`;
-
-  //   5. Fallback final — RPC público (vai falhar pra getTokenAccountsByOwner,
-  //      mas é melhor que crash em ambiente sem nada configurado)
-  return 'https://api.mainnet-beta.solana.com';
-}
-
-const MAINNET_RPC = resolveMainnetRpc();
-
-// Lista de RPCs públicos para rotação SOMENTE em retry após 401/403/429 do
-// RPC primário. Esses endpoints bloqueiam getTokenAccountsByOwner e outros
-// métodos úteis, então usar com moderação.
-const PUBLIC_RPC_LIST = [
-  'https://solana-rpc.publicnode.com',
-  'https://rpc.ankr.com/solana',
-  'https://api.mainnet-beta.solana.com',
-  'https://solana.public-rpc.com',
-];
+// Resolução de endpoints centralizada em src/config/rpc.ts — fonte única
+// usada também pelo _layout.tsx (SolanaConnectionProvider). Não duplicar
+// a lógica aqui.
 
 let currentPublicIdx = 0;
 
 /** Retorna o RPC correto para a rede. */
 function rpcForNetwork(network: 'mainnet' | 'devnet', forcePublic = false): string {
   if (network === 'devnet') return DEVNET_RPC;
-  if (forcePublic) return PUBLIC_RPC_LIST[currentPublicIdx];
+  if (forcePublic) return PUBLIC_FALLBACK_RPCS[currentPublicIdx];
   return MAINNET_RPC;
 }
 
-/** Endpoint WSS para subscriptions on-chain (onAccountChange, etc).
- *  Não passa pelo proxy — Vercel functions não suportam WebSocket. Se o
- *  app tiver acesso à chave Helius no bundle (EXPO_PUBLIC_HELIUS_API_KEY),
- *  usa Helius direto. Senão, retorna undefined e o web3.js cairá pra polling. */
 function wsEndpointForNetwork(network: 'mainnet' | 'devnet'): string | undefined {
   if (network === 'devnet') return undefined;
-  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
-  if (heliusKey) return `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
-  return undefined;
+  return MAINNET_WS;
 }
 
 
@@ -475,14 +415,26 @@ class TransactionService {
         return await fn(this.getConnection());
       } catch (err: any) {
         if (attempt === retries) throw err;
-        
-        // Se falhou por 401, 403 ou 429, rotaciona o RPC IMEDIATAMENTE para a próxima tentativa
+
+        // Rotação para RPC público é último recurso — só quando o RPC PRIMÁRIO
+        // (proxy /api/solana-rpc) parece indisponível. Erros 401/403/429 NÃO
+        // dispara rotação: o proxy respondeu, foi o upstream Helius que negou,
+        // e rotacionar pra publicnode/ankr não ajuda (eles bloqueiam métodos
+        // como getTokenAccountsByOwner). Backoff e tenta de novo no mesmo RPC.
+        //
+        // Rotação válida: 5xx (proxy/Vercel down), erros de fetch/timeout.
         const errorMsg = err.message || '';
-        if (errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('429')) {
-          console.warn(`[TransactionService] Erro ${errorMsg.match(/401|403|429/)?.[0]} detectado. Rotacionando RPC...`);
+        const isUpstreamDown = /\b50[0-9]\b/.test(errorMsg) ||
+          errorMsg.includes('Failed to fetch') ||
+          errorMsg.includes('ECONNREFUSED') ||
+          errorMsg.includes('ENOTFOUND') ||
+          errorMsg.includes('timeout');
+
+        if (isUpstreamDown) {
+          console.warn(`[TransactionService] Proxy aparentemente indisponível (${errorMsg.slice(0, 80)}). Rotacionando para RPC público...`);
           this.rotatePublicRpc();
         }
-        
+
         await new Promise((r) => setTimeout(r, delay));
         delay *= 2;
       }
@@ -548,8 +500,8 @@ class TransactionService {
     const net = network || this.currentNetwork;
     
     if (net === 'mainnet') {
-      currentPublicIdx = (currentPublicIdx + 1) % PUBLIC_RPC_LIST.length;
-      const nextRpc = PUBLIC_RPC_LIST[currentPublicIdx];
+      currentPublicIdx = (currentPublicIdx + 1) % PUBLIC_FALLBACK_RPCS.length;
+      const nextRpc = PUBLIC_FALLBACK_RPCS[currentPublicIdx];
       console.log(`[TransactionService] Rotacionando para próximo RPC público: ${nextRpc}`);
     }
 
@@ -1720,10 +1672,17 @@ class TransactionService {
       return result;
     } catch (err: any) {
       console.error('[TransactionService] Erro fatal no fallback de saldos:', err.message);
-      if (err.message?.includes('403') || err.message?.includes('429')) {
+      // 403/429 do proxy NÃO disparam rotação — RPCs públicos também bloqueiam
+      // getTokenAccountsByOwner. Só rotacionamos quando o proxy parece down.
+      const msg = String(err?.message ?? '');
+      const isUpstreamDown = /\b50[0-9]\b/.test(msg) ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('ENOTFOUND');
+      if (isUpstreamDown) {
         this.rotatePublicRpc();
       }
-      
+
       const lastCached = this.balanceCache.get(walletAddress);
       if (lastCached) {
         return lastCached.data;

@@ -404,6 +404,15 @@ export default function HomeScreen() {
                   )}
                 </View>
                 
+                {rtBalances.error && rtBalances.lastUpdated && (
+                  <View style={styles.rpcErrorBadge}>
+                    <View style={styles.rpcErrorDot} />
+                    <Text style={styles.rpcErrorText} numberOfLines={1}>
+                      Saldo desatualizado · {rtBalances.error}
+                    </Text>
+                  </View>
+                )}
+
                 <Text style={styles.addressLabel}>{t('ENDEREÇO PÚBLICO')}</Text>
                 <TouchableOpacity 
                    style={styles.fullAddressPill} 
@@ -800,6 +809,32 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: F.bold,
     letterSpacing: 0.5,
+  },
+  rpcErrorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(231,76,60,0.5)',
+    backgroundColor: 'rgba(231,76,60,0.08)',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  rpcErrorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E74C3C',
+    marginRight: 6,
+  },
+  rpcErrorText: {
+    color: '#E74C3C',
+    fontSize: 11,
+    fontFamily: F.body,
+    flexShrink: 1,
   },
 });
 

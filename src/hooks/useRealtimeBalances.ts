@@ -111,9 +111,21 @@ export function useRealtimeBalances(walletAddress?: string | null, networkProp?:
         // console.log(`[useRealtimeBalances] ✅ Saldos atualizados.`);
       }
     } catch (err: any) {
-      // console.warn('[useRealtimeBalances] fetchAll error:', err.message);
+      // Saldos atuais ficam preservados (state não é tocado) — exibimos só
+      // um indicador de erro pra UI mostrar badge "offline" sem zerar valores.
+      const raw = String(err?.message ?? err ?? '');
+      let friendly: string;
+      if (raw.includes('403') || raw.includes('401')) {
+        friendly = 'RPC negado (HELIUS_API_KEY no proxy?)';
+      } else if (raw.includes('429')) {
+        friendly = 'RPC com rate-limit, tentando novamente…';
+      } else if (raw.includes('Failed to fetch') || raw.includes('NetworkError')) {
+        friendly = 'Sem conexão com o RPC';
+      } else {
+        friendly = raw.slice(0, 140) || 'Falha ao atualizar saldo';
+      }
       if (mountedRef.current) {
-        setError(err.message);
+        setError(friendly);
         setIsLoading(false);
       }
     }

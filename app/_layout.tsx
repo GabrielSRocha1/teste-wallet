@@ -49,8 +49,9 @@ export const unstable_settings = {
   initialRouteName: 'login',
 };
 
-const SOLANA_RPC_ENDPOINT =
-  process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET ?? 'https://api.mainnet-beta.solana.com';
+import { MAINNET_RPC } from '@/src/config/rpc';
+
+const SOLANA_RPC_ENDPOINT = MAINNET_RPC;
 
 const WALLET_ADAPTERS: Adapter[] = [];
 

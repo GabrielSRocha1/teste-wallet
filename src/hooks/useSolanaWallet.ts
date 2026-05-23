@@ -81,7 +81,7 @@ export interface UseSolanaWalletResult {
 // 'expired' automaticamente quando getSessionKeypair detecta idle > 15min, MAS
 // só checa quando alguém chama essa função. O heartbeat aqui garante que mesmo
 // sem chamadas externas, o hook ativamente sonda o estado e atualiza a UI.
-import { BALANCE_POLL_MS, SESSION_HEARTBEAT_MS } from '@/src/config/polling';
+import { SESSION_HEARTBEAT_MS } from '@/src/config/polling';
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,19 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     }
   }, [safeSetState, network]);
 
-  // ── WebSocket subscription para saldo em tempo real ─────────────────────
+  // ── Cleanup de subscription/polling ───────────────────────────────────
+  //
+  // Antes este hook abria sua PRÓPRIA subscription onAccountChange + polling
+  // pra atualizar `balance` (só SOL). Mas `useRealtimeBalances` já faz isso
+  // pra SOL+SPL+tokens dinâmicos em paralelo na mesma conta. Manter os dois
+  // abria 2x os WebSockets pra mesma chave → conflito no Helius free tier
+  // (sub limit) e estado divergente entre `useSolanaWallet.balance` e
+  // `useRealtimeBalances.balances.SOL` em corner cases.
+  //
+  // Solução: este hook fica responsável apenas pelo fetch inicial de saldo
+  // SOL ao ativar a wallet. Pra saldo em tempo real, a UI usa
+  // useRealtimeBalances (que tem WS + polling + cache + erro propagado).
+  // refreshBalance() ainda funciona pra refresh pontual on-demand.
 
   const unsubscribeBalance = useCallback(() => {
     if (wsSubId.current !== null && connRef.current) {
@@ -142,36 +154,6 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     }
   }, []);
 
-  const startPolling = useCallback((address: string) => {
-    if (pollTimer.current) return;
-    pollTimer.current = setInterval(() => {
-      fetchBalance(address);
-    }, BALANCE_POLL_MS);
-  }, [fetchBalance]);
-
-  const subscribeBalance = useCallback((address: string) => {
-    unsubscribeBalance();
-
-    try {
-      const connection = transactionService.getConnection(network);
-      const pk = new PublicKey(address);
-
-      connRef.current = connection;
-      wsSubId.current = connection.onAccountChange(
-        pk,
-        (accountInfo) => {
-          const sol = accountInfo.lamports / LAMPORTS_PER_SOL;
-          safeSetState(setBalance, sol);
-        },
-        'confirmed'
-      );
-      startPolling(address);
-    } catch (err) {
-      console.warn('[useSolanaWallet] subscribeBalance error:', err);
-      startPolling(address);
-    }
-  }, [unsubscribeBalance, startPolling, safeSetState, network]);
-
   // ── Ativar wallet (após gerar/importar/unlock) ─────────────────────────
 
   const activateWallet = useCallback((address: string) => {
@@ -179,10 +161,9 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     safeSetState(setStatus, 'active');
     safeSetState(setError, null);
 
-    // Busca saldo inicial + subscribe tempo real
+    // Busca saldo inicial. Tempo real fica por conta de useRealtimeBalances.
     fetchBalance(address);
-    subscribeBalance(address);
-  }, [safeSetState, fetchBalance, subscribeBalance]);
+  }, [safeSetState, fetchBalance]);
 
   // ── API pública: criar nova identidade (ação explícita) ────────────────
 
@@ -319,13 +300,12 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     }
   }, [publicKey, fetchBalance]);
 
-  // Re-fetch e re-subscribe quando a rede muda
+  // Re-fetch quando a rede muda
   useEffect(() => {
     if (publicKey && status === 'active') {
       fetchBalance(publicKey);
-      subscribeBalance(publicKey);
     }
-  }, [network, publicKey, status, fetchBalance, subscribeBalance]);
+  }, [network, publicKey, status, fetchBalance]);
 
   // ── (M9) Listener de eventos de sessão + heartbeat ──────────────────────
   //
@@ -388,17 +368,17 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     return () => clearInterval(interval);
   }, [status]);
 
-  // Re-subscribe ao WebSocket quando o app volta ao primeiro plano
+  // Re-fetch quando o app volta ao primeiro plano (subscription real fica
+  // por conta de useRealtimeBalances).
   useEffect(() => {
     const handleAppState = (nextState: AppStateStatus) => {
       if (nextState === 'active' && publicKey && status === 'active') {
         fetchBalance(publicKey);
-        subscribeBalance(publicKey);
       }
     };
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [publicKey, status, fetchBalance, subscribeBalance]);
+  }, [publicKey, status, fetchBalance]);
 
   // ── Inicialização: tenta restaurar sessão existente ─────────────────────
   //
