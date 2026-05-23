@@ -354,20 +354,16 @@ export function isRateOrAuthFailure(err: unknown, message?: string): boolean {
 // ─── TransactionService ──────────────────────────────────────────────────────
 
 class TransactionService {
-  private connection: Connection;
+  // `this.connection` removido — era criado eager no constructor com
+  // rpcForNetwork(), o que em build estático Node (SSR) cravava o RPC público
+  // como fallback. Agora todo acesso passa por `getConnection()`, que cria
+  // sob demanda em runtime (no browser) e cacheia. Métodos `setNetwork`,
+  // `setPublicMode` e `rotatePublicRpc` apenas limpam o cache.
   private connectionCache = new Map<string, Connection>();
   public currentNetwork: 'mainnet' | 'devnet' = 'mainnet';
   private publicRpcMode = false;
   public readonly SOL_NATIVE_MINT = 'So11111111111111111111111111111111111111112';
   private balanceCache = new Map<string, { data: BalanceResult, timestamp: number }>();
-
-  constructor() {
-    // Usa EXCLUSIVAMENTE o RPC da rede declarada — sem variável genérica ambígua
-    this.connection = new Connection(rpcForNetwork(this.currentNetwork), {
-      commitment: 'confirmed',
-      wsEndpoint: wsEndpointForNetwork(this.currentNetwork),
-    });
-  }
 
   /**
    * (F1) Fetch de blockhash com retry exponencial + jitter + timeout.
@@ -491,14 +487,13 @@ class TransactionService {
   public setPublicMode(active: boolean) {
     this.publicRpcMode = active;
     this.connectionCache.clear();
-    this.connection = this.getConnection();
     console.log(`[TransactionService] Modo RPC Público: ${active ? 'ATIVADO' : 'DESATIVADO'}`);
   }
 
   /** Força a rotação para o próximo RPC público se o atual estiver falhando (401/403/429) */
   public rotatePublicRpc(network?: 'mainnet' | 'devnet') {
     const net = network || this.currentNetwork;
-    
+
     if (net === 'mainnet') {
       currentPublicIdx = (currentPublicIdx + 1) % PUBLIC_FALLBACK_RPCS.length;
       const nextRpc = PUBLIC_FALLBACK_RPCS[currentPublicIdx];
@@ -507,9 +502,6 @@ class TransactionService {
 
     this.connectionCache.delete(`${net}`);
     this.connectionCache.delete(`${net}_public`);
-    if (net === this.currentNetwork) {
-      this.connection = this.getConnection(net);
-    }
     console.log(`[TransactionService] RPC rotacionado para ${net} devido a erro de conexão.`);
   }
 
@@ -531,11 +523,9 @@ class TransactionService {
       );
     }
     this.currentNetwork = network;
-    // rpcForNetwork garante que nunca haverá cruzamento de endpoints entre redes
-    this.connection = new Connection(rpcForNetwork(network), {
-      commitment: 'confirmed',
-      wsEndpoint: wsEndpointForNetwork(network),
-    });
+    // rpcForNetwork garante que nunca haverá cruzamento de endpoints entre redes.
+    // Limpamos o cache e a próxima chamada a getConnection() cria a Connection
+    // sob demanda com a URL resolvida via getMainnetRpc() em runtime.
     this.connectionCache.clear();
     if (save) {
       AsyncStorage.setItem('@solana_network', network).catch(() => {});
@@ -757,9 +747,15 @@ class TransactionService {
       const toATA = await getAssociatedTokenAddress(mint, to, false, programId);
       const feeWalletATA = await getAssociatedTokenAddress(mint, feeWallet, false, programId);
 
+      // Usa getConnection() em vez de this.connection — garante que a URL é
+      // re-resolvida lazy via getMainnetRpc() em runtime no browser. Se o
+      // constructor rodou em SSR/build estático sem window, this.connection
+      // poderia apontar pro fallback público.
+      const conn = this.getConnection();
+
       // Conta do Destinatário
       try {
-        await getAccount(this.connection, toATA, 'confirmed', programId);
+        await getAccount(conn, toATA, 'confirmed', programId);
       } catch (e) {
         if (e instanceof TokenAccountNotFoundError) {
           tx.add(createAssociatedTokenAccountInstruction(from, toATA, to, mint, programId));
@@ -768,7 +764,7 @@ class TransactionService {
 
       // Conta da Tesouraria Verum
       try {
-        await getAccount(this.connection, feeWalletATA, 'confirmed', programId);
+        await getAccount(conn, feeWalletATA, 'confirmed', programId);
       } catch (e) {
         if (e instanceof TokenAccountNotFoundError) {
           tx.add(createAssociatedTokenAccountInstruction(from, feeWalletATA, feeWallet, mint, programId));
@@ -832,7 +828,9 @@ class TransactionService {
       const versionedTx = VersionedTransaction.deserialize(
         transaction.serialize({ requireAllSignatures: false, verifySignatures: false }),
       );
-      const result = await this.connection.simulateTransaction(versionedTx, {
+      // Mesma motivação dos getAccount acima: usar getConnection() pra
+      // garantir RPC lazy-resolvido em runtime.
+      const result = await this.getConnection().simulateTransaction(versionedTx, {
         sigVerify: false,
         replaceRecentBlockhash: true,
       });

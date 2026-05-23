@@ -16,9 +16,6 @@
  */
 
 import { supabase } from './supabase';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
-import type { ParsedAccountData } from '@solana/web3.js';
 import transactionService, { TOKEN_MINTS_MAINNET } from './transactionService';
 
 
@@ -61,10 +58,6 @@ const MINT_SOL_NATIVE = 'So11111111111111111111111111111111111111112';
 // ─── BlockchainSyncService ───────────────────────────────────────────────────
 
 class BlockchainSyncService {
-  private get connection(): Connection {
-    return transactionService.getConnection();
-  }
-
   // ══════════════════════════════════════════════════════════════════════════
   // 1. SALVAR WALLET NO SUPABASE (após criação ou importação)
   // ══════════════════════════════════════════════════════════════════════════
@@ -143,61 +136,31 @@ class BlockchainSyncService {
     };
 
     try {
-      const pubkey = new PublicKey(walletAddress);
       const currentNetwork = transactionService.currentNetwork;
       const mints = currentNetwork === 'mainnet' ? TOKEN_MINTS_MAINNET : transactionService.getTokenMints();
-      
-      console.log(`[BlockchainSync] Iniciando fetch on-chain (${currentNetwork}) para: ${walletAddress.substring(0, 8)}...`);
-
-      // 3 chamadas em paralelo com retry: SOL + SPL + Token-2022
-      const [solRes, splRes, spl2022Res] = await Promise.allSettled([
-        transactionService.withRetry((c) => c.getBalance(pubkey, 'confirmed')),
-        transactionService.withRetry((c) => c.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_PROGRAM_ID })),
-        transactionService.withRetry((c) => c.getParsedTokenAccountsByOwner(pubkey, { programId: TOKEN_2022_PROGRAM_ID })),
-      ]);
-
-
-      // SOL nativo
-      if (solRes.status === 'fulfilled') {
-        balances.SOL = solRes.value / LAMPORTS_PER_SOL;
-      } else {
-        console.warn('[BlockchainSync] Falha ao buscar saldo SOL:', solRes.reason);
-      }
-
-      // Mapeia mint → símbolo
-      const mintToSymbol: Record<string, string> = {};
+      const mintMap: Record<string, string> = {};
       for (const [sym, meta] of Object.entries(mints)) {
-        mintToSymbol[(meta as any).mint] = sym;
+        mintMap[sym] = (meta as any).mint;
       }
 
-      // Helper para processar contas
-      const processAccounts = (accounts: any[]) => {
-        for (const acct of accounts) {
-          const info = (acct.account.data as ParsedAccountData).parsed?.info;
-          const mintAddr: string = info?.mint ?? '';
-          const uiAmount: number = info?.tokenAmount?.uiAmount ?? 0;
-          const sym = mintToSymbol[mintAddr];
-          if (sym) {
-            balances[sym] = uiAmount;
-          }
-        }
-      };
+      console.log(`[BlockchainSync] Delegando fetch on-chain (${currentNetwork}) para transactionService: ${walletAddress.substring(0, 8)}...`);
 
-      if (splRes.status === 'fulfilled') {
-        processAccounts(splRes.value.value);
-      } else {
-        console.warn('[BlockchainSync] Falha ao buscar tokens (Token Program):', splRes.reason);
-      }
+      // Delega pro mesmo getBalances do transactionService — uma fonte só de
+      // verdade. Aproveita o cache de 2s, evita duplicar 3 RPCs e mantém
+      // comportamento idêntico ao useRealtimeBalances. Antes essa função
+      // duplicava a lógica e gerava 6 RPC calls em paralelo por refresh.
+      const { balances: fetched } = await transactionService.getBalances(walletAddress, mintMap);
 
-      if (spl2022Res.status === 'fulfilled') {
-        processAccounts(spl2022Res.value.value);
-      } else {
-        console.warn('[BlockchainSync] Falha ao buscar tokens (Token-2022 Program):', spl2022Res.reason);
+      for (const [sym, val] of Object.entries(fetched)) {
+        if (typeof val === 'number') (balances as any)[sym] = val;
       }
 
       console.log('[BlockchainSync] ✅ Fetch on-chain concluído:', JSON.stringify(balances));
     } catch (err: any) {
+      // Importante: re-lança pra que callers (syncBalancesToSupabase) saibam
+      // que o fetch falhou e NÃO sobrescrevam o Supabase com zeros.
       console.error('[BlockchainSync] Erro crítico em fetchOnChainBalances:', err.message);
+      throw err;
     }
 
     return balances;
@@ -206,29 +169,33 @@ class BlockchainSyncService {
   /**
    * Sincroniza os saldos on-chain de volta para a tabela `usuarios` no Supabase.
    * Atualiza os campos saldo_sol, saldo_usdt, saldo_usdc, saldo_bdc, saldo_esct, saldo_brt.
+   *
+   * IMPORTANTE: se o fetch on-chain falhar (RPC down, 403, timeout), ABORTA
+   * sem tocar no Supabase. Antes, o catch silencioso somado ao default { SOL:0,
+   * USDT:0, ... } fazia o método ESCREVER ZEROS — apagando o saldo bom anterior
+   * em qualquer outage de RPC. Bug grave de integridade dos dados.
    */
   async syncBalancesToSupabase(userId: string, walletAddress: string): Promise<void> {
+    let balances: OnChainBalances;
     try {
       console.log(`[BlockchainSync] Iniciando sincronização para ${walletAddress.substring(0, 8)}...`);
-      const balances = await this.fetchOnChainBalances(walletAddress);
+      balances = await this.fetchOnChainBalances(walletAddress);
+    } catch (err) {
+      console.warn('[BlockchainSync] Sync ABORTADO — fetch on-chain falhou, mantendo saldo anterior no Supabase:', err);
+      return;
+    }
 
-      // Defensivo: se fetchOnChainBalances retornou SOL=0, fazemos uma checagem
-      // direta. Se o RPC direto também der > 0, CORRIGIMOS o valor antes do
-      // upsert (em vez de abortar — abortar deixava a tabela congelada na
-      // última leitura boa, podendo ser horas/dias atrás).
-      if (balances.SOL === 0) {
-        try {
-          const lamps = await this.connection.getBalance(new PublicKey(walletAddress));
-          const realSol = lamps / LAMPORTS_PER_SOL;
-          if (realSol > 0) {
-            console.warn(`[BlockchainSync] Corrigindo SOL: fetch retornou 0, RPC direto ${realSol}. Aplicando valor real.`);
-            balances.SOL = realSol;
-          }
-        } catch (rpcErr) {
-          console.warn('[BlockchainSync] Falha no double-check de SOL, prosseguindo com valor do fetch:', rpcErr);
-        }
-      }
+    // Sanidade: se SOL=0 E tokens todos zero, considera leitura suspeita
+    // (provável falha silenciosa) — não sobrescreve. Carteira realmente vazia
+    // não tem ATAs criadas e retornaria SOL=0 com tokens vazios. Diferenciar
+    // é caro; por segurança, abortamos qualquer caso que pareça "tudo zero".
+    const todosZero = Object.values(balances).every((v) => !v || v === 0);
+    if (todosZero) {
+      console.warn('[BlockchainSync] Todos os saldos retornaram zero — provável falha silenciosa. Sync ABORTADO.');
+      return;
+    }
 
+    try {
       const payload = {
         saldo_sol:  balances.SOL || 0,
         saldo_usdt: balances.USDT || 0,

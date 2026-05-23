@@ -34,13 +34,28 @@ export function resolveProxyBase(): string {
   return '';
 }
 
+/**
+ * RPCs sabidamente quebrados pra uso em browser (CORS, rate-limit anônimo,
+ * bloqueio de getTokenAccountsByOwner). Se uma env apontar pra esses, IGNORAMOS
+ * — assumimos que foi copiado do .env.example por engano e seguimos pra
+ * próxima prioridade. Sem essa proteção, um `EXPO_PUBLIC_SOLANA_RPC_MAINNET=
+ * https://api.mainnet-beta.solana.com` setado no painel da Vercel "envenena"
+ * o bundle inteiro com a URL ruim.
+ */
+const KNOWN_BAD_RPCS = ['api.mainnet-beta.solana.com'];
+
+function isBadRpc(url: string | undefined): boolean {
+  if (!url) return true;
+  return KNOWN_BAD_RPCS.some((bad) => url.includes(bad));
+}
+
 /** Endpoint RPC mainnet — proxy por padrão, override por env. */
 export function resolveMainnetRpc(): string {
   const explicit = process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET?.trim();
-  if (explicit) return explicit;
+  if (!isBadRpc(explicit)) return explicit!;
 
   const heliusUrl = process.env.EXPO_PUBLIC_HELIUS_RPC_URL?.trim();
-  if (heliusUrl) return heliusUrl;
+  if (!isBadRpc(heliusUrl)) return heliusUrl!;
 
   const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
   if (heliusKey) return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
