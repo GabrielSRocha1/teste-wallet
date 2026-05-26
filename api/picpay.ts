@@ -16,10 +16,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
-const PICPAY_AUTH_URL = 'https://checkout-api.picpay.com/oauth2/token';
-// SANDBOX — pra produção trocar host para o equivalente sem `.svcp.ppay.me`
-// e remover o segmento `/sandbox/` (ex: `https://ecommerce-api.picpay.com/v1/charge/pix`).
-// Idealmente parametrizar via PICPAY_CHARGE_URL no .env quando subir pra prod.
+// IMPORTANTE: AUTH_URL e CHARGE_URL precisam ser do MESMO ambiente
+// (ambos sandbox ou ambos produção), senão o token é rejeitado com
+// "Token issuer not allowed". Parametrizado via env pra facilitar
+// a troca sandbox↔prod sem deploy de código.
+const PICPAY_AUTH_URL =
+  process.env.PICPAY_AUTH_URL ??
+  'https://checkout-api.picpay.com/oauth2/token';
 const PICPAY_CHARGE_URL =
   process.env.PICPAY_CHARGE_URL ??
   'https://ecommerce-api.svcp.ppay.me/sandbox/v1/charge/pix';
