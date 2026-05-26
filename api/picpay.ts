@@ -127,35 +127,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'referenceId inválido.' });
       }
 
-      const merchantChargeId = deriveMerchantChargeId(cleanReferenceId);
-      const documentDigits = buyer.document.replace(/\D/g, '');
-      const phoneDigits = buyer.phone.replace(/\D/g, '');
-
-      // PicPay espera telefone separado em country/area/number. Default Brasil.
-      const phone = {
-        countryCode: '55',
-        areaCode: phoneDigits.slice(-11, -9) || '11',
-        number: phoneDigits.slice(-9) || '999999999',
-        type: 'MOBILE',
-      };
-
       const token = await getAccessToken();
+
+      // Link de Pagamento expira em data (YYYY-MM-DD), não timestamp.
+      // Damos 7 dias de janela — depois de pago vira "paid" independente.
+      const expiredAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+
+      const chargeLabel = `${buyer.firstName} ${buyer.lastName}`.trim() || 'Cobrança Verum';
+
       const payload = {
-        paymentSource: 'GATEWAY',
-        merchantChargeId,
-        customer: {
-          name: `${buyer.firstName} ${buyer.lastName}`.trim(),
-          email: buyer.email,
-          documentType: documentDigits.length === 11 ? 'CPF' : 'CNPJ',
-          document: documentDigits,
-          phone,
-        },
-        transactions: [
-          {
-            amount: Math.round(parsedAmount * 100), // PicPay em centavos
-            pix: { expiration: 1800 }, // 30 min
+        charge: {
+          name: chargeLabel,
+          description: 'Vesting Verum',
+          order_number: cleanReferenceId,
+          redirect_url: 'https://www.verumcrypto.com',
+          payment: {
+            methods: ['BRCODE'],
+            brcode_arrangements: ['PIX'],
           },
-        ],
+          amounts: {
+            product: Math.round(parsedAmount * 100), // PicPay em centavos
+          },
+        },
+        options: {
+          allow_create_pix_key: true,
+          expired_at: expiredAt,
+        },
       };
 
       const picpayRes = await fetch(PICPAY_CHARGE_URL, {
@@ -174,14 +173,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(502).json({ error: 'Falha ao criar cobrança PicPay' });
       }
       const picpayData = JSON.parse(picpayText);
-      const pixData = picpayData.transactions?.[0]?.pix;
-      if (!pixData?.qrCodeBase64 || !pixData?.qrCode) {
-        console.error('[PicPay] Response missing pix data:', picpayData);
-        return res.status(502).json({ error: 'Resposta PicPay sem QR Code' });
+      const brcode: string | undefined = picpayData?.brcode;
+      if (!brcode) {
+        console.error('[PicPay] Response missing brcode:', picpayData);
+        return res.status(502).json({ error: 'Resposta PicPay sem brcode' });
       }
 
-      // Linka merchantChargeId ↔ orderId no Supabase pra lookup no webhook
-      if (SUPABASE_URL && SUPABASE_KEY) {
+      // Linka txid ↔ orderId no Supabase — webhook do Payment Link usa txid
+      // pra identificar qual cobrança foi paga.
+      if (SUPABASE_URL && SUPABASE_KEY && picpayData.txid) {
         await fetch(
           `${SUPABASE_URL}/rest/v1/deposit_orders?id=eq.${cleanReferenceId}`,
           {
@@ -191,23 +191,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               apikey: SUPABASE_KEY,
               Authorization: `Bearer ${SUPABASE_KEY}`,
             },
-            body: JSON.stringify({ picpay_reference: merchantChargeId }),
+            body: JSON.stringify({ picpay_reference: picpayData.txid }),
           },
         );
       }
 
-      // Preserva shape antigo { qrcode: { base64, content } } pra não quebrar frontend.
-      // Garante prefixo data: na imagem base64 (Image RN aceita sem prefixo, mas web exige).
-      const base64Img = pixData.qrCodeBase64.startsWith('data:')
-        ? pixData.qrCodeBase64
-        : `data:image/png;base64,${pixData.qrCodeBase64}`;
-
+      // Frontend gera o PNG localmente via qrcode.toDataURL(content) — não
+      // mandamos base64 porque o Payment Link só devolve a string brcode.
       return res.status(200).json({
-        qrcode: { base64: base64Img, content: pixData.qrCode },
+        qrcode: { content: brcode },
         referenceId: cleanReferenceId,
-        merchantChargeId,
-        picpayChargeId: picpayData.id,
-        expiresInSeconds: 1800,
+        txid: picpayData.txid,
+        link: picpayData.link,
+        deeplink: picpayData.deeplink,
+        expiresInSeconds: 7 * 24 * 60 * 60,
       });
     }
 

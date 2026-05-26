@@ -8,7 +8,8 @@
       "Bash(npm run:*)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Read(//c/c/Users/gabri/OneDrive/Documentos/pasta construção/wallet-crypto-main/backend/src/modules/balance/**)",
-      "Read(//c/c/Users/gabri/OneDrive/Documentos/pasta construção/**)"
+      "Read(//c/c/Users/gabri/OneDrive/Documentos/pasta construção/**)",
+      "Bash(curl *)"
     ]
   }
 }
