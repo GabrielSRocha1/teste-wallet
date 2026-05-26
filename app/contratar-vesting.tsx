@@ -176,10 +176,17 @@ export default function ContratarVestingScreen() {
   };
 
   const parseBrlInput = (raw: string): number => {
-    // Aceita "1.234,56" (pt-BR) ou "1234.56" — o CurrencyConverter devolve no
-    // formato pt-BR via toLocaleString.
-    const cleaned = (raw || '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-    return parseFloat(cleaned) || 0;
+    // CurrencyConverter manda US format via .toFixed(2) ("44.00"); o usuário
+    // pode editar manualmente em pt-BR ("1.234,56"). Detecta o decimal pelo
+    // último separador — antes removia todo '.' como milhar e transformava
+    // "44.00" em 4400.
+    const cleaned = (raw || '').toString().replace(/\s/g, '');
+    if (!cleaned) return 0;
+    const decimalPos = Math.max(cleaned.lastIndexOf('.'), cleaned.lastIndexOf(','));
+    if (decimalPos === -1) return parseFloat(cleaned) || 0;
+    const intPart = cleaned.slice(0, decimalPos).replace(/[.,]/g, '');
+    const decPart = cleaned.slice(decimalPos + 1);
+    return parseFloat(`${intPart}.${decPart}`) || 0;
   };
 
   const handleSelectPix = async () => {
