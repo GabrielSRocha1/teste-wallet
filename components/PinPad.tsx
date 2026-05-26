@@ -1,21 +1,23 @@
 import { F, V } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface PinPadProps {
   value: string;
   onChange: (v: string) => void;
   maxLength?: number;
   disabled?: boolean;
+  loading?: boolean;
 }
 
-export default function PinPad({ value, onChange, maxLength = 6, disabled = false }: PinPadProps) {
+export default function PinPad({ value, onChange, maxLength = 6, disabled = false, loading = false }: PinPadProps) {
+  const isBlocked = disabled || loading;
   const press = (digit: string) => {
-    if (!disabled && value.length < maxLength) onChange(value + digit);
+    if (!isBlocked && value.length < maxLength) onChange(value + digit);
   };
   const del = () => {
-    if (!disabled) onChange(value.slice(0, -1));
+    if (!isBlocked) onChange(value.slice(0, -1));
   };
 
   return (
@@ -26,39 +28,45 @@ export default function PinPad({ value, onChange, maxLength = 6, disabled = fals
         ))}
       </View>
 
-      <View style={styles.grid}>
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color={V.gold} />
+        </View>
+      ) : (
+        <View style={styles.grid}>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.key, isBlocked && styles.keyDisabled]}
+              onPress={() => press(d)}
+              activeOpacity={0.65}
+              disabled={isBlocked}
+            >
+              <Text style={styles.keyText}>{d}</Text>
+            </TouchableOpacity>
+          ))}
+
+          <View style={styles.keyEmpty} />
+
           <TouchableOpacity
-            key={d}
-            style={[styles.key, disabled && styles.keyDisabled]}
-            onPress={() => press(d)}
+            style={[styles.key, isBlocked && styles.keyDisabled]}
+            onPress={() => press('0')}
             activeOpacity={0.65}
-            disabled={disabled}
+            disabled={isBlocked}
           >
-            <Text style={styles.keyText}>{d}</Text>
+            <Text style={styles.keyText}>0</Text>
           </TouchableOpacity>
-        ))}
 
-        <View style={styles.keyEmpty} />
-
-        <TouchableOpacity
-          style={[styles.key, disabled && styles.keyDisabled]}
-          onPress={() => press('0')}
-          activeOpacity={0.65}
-          disabled={disabled}
-        >
-          <Text style={styles.keyText}>0</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.key, styles.keyDel, disabled && styles.keyDisabled]}
-          onPress={del}
-          activeOpacity={0.65}
-          disabled={disabled}
-        >
-          <Feather name="delete" size={22} color={V.gold} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.key, styles.keyDel, isBlocked && styles.keyDisabled]}
+            onPress={del}
+            activeOpacity={0.65}
+            disabled={isBlocked}
+          >
+            <Feather name="delete" size={22} color={V.gold} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -89,6 +97,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     width: 288,
+    justifyContent: 'center',
+  },
+  loadingBox: {
+    width: 288,
+    height: 304,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   key: {

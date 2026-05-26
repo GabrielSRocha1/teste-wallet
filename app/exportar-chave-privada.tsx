@@ -121,6 +121,11 @@ export default function ExportarChavePrivadaScreen() {
           </TouchableOpacity>
         )}
 
+        <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/(tabs)/' as any)}>
+          <Feather name="home" size={18} color={V.gold} />
+          <Text style={styles.homeBtnText}>VOLTAR PARA HOME</Text>
+        </TouchableOpacity>
+
         <View style={styles.warningCard}>
           <Feather name="alert-triangle" size={20} color={V.danger} />
           <View style={{flex: 1}}>
@@ -154,6 +159,8 @@ const styles = StyleSheet.create({
   description: { fontSize: 13, fontFamily: F.body, color: V.muted, textAlign: 'center', lineHeight: 22 },
   revealBtn: { width: '100%', height: 60, backgroundColor: V.gold, borderRadius: V.r8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, ...V.shadow },
   revealBtnText: { color: V.bg, fontSize: 15, fontFamily: F.bold, letterSpacing: 1 },
+  homeBtn: { width: '100%', height: 56, marginTop: 14, backgroundColor: V.surface1, borderRadius: V.r8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: V.border },
+  homeBtnText: { color: V.gold, fontSize: 13, fontFamily: F.bold, letterSpacing: 1 },
   keyBox: { width: '100%', padding: 24, backgroundColor: V.surface1, borderRadius: V.r12, borderWidth: 1, borderColor: V.gold, alignItems: 'center', overflow: 'hidden', ...V.shadow },
   keyText: {
     fontSize: 13,

@@ -189,6 +189,11 @@ export default function ExportarFraseScreen() {
                 <Feather name={isSecretVisible ? "eye-off" : "eye"} size={20} color={isSecretVisible ? V.muted : V.bg} />
                 <Text style={[styles.mainBtnT, isSecretVisible && {color: V.muted}]}>{isSecretVisible ? 'OCULTAR FRASE' : 'REVELAR FRASE'}</Text>
              </TouchableOpacity>
+
+             <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/(tabs)/' as any)}>
+                <Feather name="home" size={18} color={V.gold} />
+                <Text style={styles.homeBtnT}>VOLTAR PARA HOME</Text>
+             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -236,6 +241,8 @@ const styles = StyleSheet.create({
   mainBtn: { height: 60, backgroundColor: V.gold, borderRadius: V.r8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...V.shadow },
   mainBtnOff: { backgroundColor: V.surface1, borderWidth: 1, borderColor: V.border },
   mainBtnT: { color: V.bg, fontSize: 15, fontFamily: F.bold, letterSpacing: 1 },
+  homeBtn: { height: 56, marginTop: 14, backgroundColor: V.surface1, borderRadius: V.r8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: V.border },
+  homeBtnT: { color: V.gold, fontSize: 13, fontFamily: F.bold, letterSpacing: 1 },
 
   mOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end', alignItems: 'center' },
   mContent: { backgroundColor: V.surface1, width: '100%', minWidth: 320, maxWidth: 650, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 32, paddingBottom: 50, borderWidth: 1, borderColor: V.border },

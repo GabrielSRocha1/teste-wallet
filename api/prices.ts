@@ -117,6 +117,9 @@ async function fetchForex(): Promise<{ BRL: number; PYG: number }> {
 const ALLOWED_ORIGINS = [
   'https://verumcrypto.com',
   'https://www.verumcrypto.com',
+  'http://localhost:8081',
+  'http://localhost:19006',
+  'http://localhost:3000',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 

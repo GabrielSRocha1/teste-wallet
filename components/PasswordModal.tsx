@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { V, F } from '@/constants/theme';
 import PinPad from '@/components/PinPad';
@@ -64,13 +64,8 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
               {description || 'Digite seu PIN de 6 dígitos para continuar.'}
             </Text>
 
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={V.gold} />
-              </View>
-            ) : (
-              <PinPad value={pin} onChange={setPin} maxLength={MAX_PIN} disabled={loading} />
-            )}
+            <PinPad value={pin} onChange={setPin} maxLength={MAX_PIN} loading={loading} />
+
 
             {!!errorMessage && (
               <View style={styles.errorRow}>
@@ -102,7 +97,6 @@ const styles = StyleSheet.create({
   iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(201,168,76,0.1)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 16, fontFamily: F.title, color: V.gold, letterSpacing: 1 },
   modalDescription: { fontSize: 13, fontFamily: F.body, color: V.muted, marginBottom: 24, lineHeight: 20, textAlign: 'center' },
-  loadingContainer: { height: 232, alignItems: 'center', justifyContent: 'center' },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 4 },
   errorText: { fontSize: 12, fontFamily: F.semi, color: V.danger, flex: 1 },
   cancelBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 32, borderRadius: V.r8, borderWidth: 1, borderColor: V.border },

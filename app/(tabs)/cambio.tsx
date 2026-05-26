@@ -333,17 +333,18 @@ export default function CambioScreen() {
       // Necessário porque skipPreflight:true não bloqueia tx que falharia por insufficient SOL.
       if (hasBothMints) {
         const SOL_BUFFER = 0.005;
-        const solOnChain = onChainBalances?.SOL ?? 0;
+        const solOnChain = getBalNum('SOL');
         const isSellingSol = fromToken.symbol === 'SOL';
         const requiredSol = isSellingSol ? amt + SOL_BUFFER : SOL_BUFFER;
         if (solOnChain < requiredSol) {
-          Alert.alert(
-            t('Saldo SOL insuficiente'),
-            t(`Você precisa de pelo menos ${requiredSol.toFixed(4)} SOL para cobrir taxa de rede e possível criação de conta de token. Saldo atual: ${solOnChain.toFixed(4)} SOL.`),
+          console.log('[Swap] Abortado em executeSwap: SOL insuficiente', { solOnChain, requiredSol });
+          setSwapModalStatus('error');
+          setSwapModalMessage(
+            `${t('Saldo SOL insuficiente para cobrir taxa de rede e criação de conta de token.')} ${t('Saldo atual')}: ${solOnChain.toFixed(6)} SOL. ${t('Necessário')}: ${requiredSol.toFixed(6)} SOL.`,
           );
+          setTimeout(() => setIsSwapLoadingModalVisible(false), 4500);
           setIsSubmitting(false);
           setLoadingStep('');
-          setIsSwapLoadingModalVisible(false);
           return;
         }
       }
@@ -843,33 +844,50 @@ export default function CambioScreen() {
               style={[styles.mainBtn, (!toAmount || isSubmitting) && {opacity: 0.5}]}
               disabled={!toAmount || isSubmitting}
              onPress={() => {
+               console.log('[Cambio] CONFIRMAR TROCA clicado', { fromAmount, toAmount, isSubmitting });
                const amt = parseFloat(fromAmount);
-               if (!amt || amt <= 0) return;
+               if (!amt || amt <= 0) {
+                 console.log('[Cambio] Abortado: valor inválido');
+                 return;
+               }
 
                const hasMints = !!fromToken.mint && !!toToken.mint;
                const totalNeeded = !hasMints ? amt * 1.02 : amt;
                const currentBal = getBalNum(fromToken.symbol);
 
                if (totalNeeded > currentBal) {
-                 Alert.alert(t('Saldo Insuficiente'), `${t('Você possui')} ${currentBal.toFixed(6)} ${fromToken.symbol} ${t('e necessita de')} ${totalNeeded.toFixed(6)} (${t('incluindo taxa de 2%')}).`);
+                 console.log('[Cambio] Abortado: saldo do token insuficiente', { currentBal, totalNeeded });
+                 setSwapModalStatus('error');
+                 setSwapModalMessage(`${t('Saldo insuficiente.')} ${t('Você possui')} ${currentBal.toFixed(6)} ${fromToken.symbol} ${t('e necessita de')} ${totalNeeded.toFixed(6)} ${fromToken.symbol} (${t('incluindo taxa de 2%')}).`);
+                 setIsSwapLoadingModalVisible(true);
+                 setTimeout(() => setIsSwapLoadingModalVisible(false), 4500);
                  return;
                }
 
                const solBal = getBalNum('SOL');
-               const gasSafetyMargin = 0.01;
-               const totalSolNeeded = fromToken.symbol === 'SOL' ? (totalNeeded + gasSafetyMargin) : gasSafetyMargin;
+               const GAS_BUFFER = 0.005;
+               const totalSolNeeded = fromToken.symbol === 'SOL' ? (totalNeeded + GAS_BUFFER) : GAS_BUFFER;
 
                if (solBal < totalSolNeeded) {
-                 Alert.alert(t('SOL p/ Gas Insuficiente'), t('Você precisa de ao menos 0.01 SOL para cobrir as taxas de rede em transações de câmbio.'));
+                 console.log('[Cambio] Abortado: SOL para gas insuficiente', { solBal, totalSolNeeded, fromSymbol: fromToken.symbol });
+                 const faltam = (totalSolNeeded - solBal).toFixed(6);
+                 setSwapModalStatus('error');
+                 setSwapModalMessage(
+                   `${t('SOL insuficiente para cobrir taxas de rede.')} ${t('Saldo atual')}: ${solBal.toFixed(6)} SOL. ${t('Necessário')}: ${totalSolNeeded.toFixed(6)} SOL (${t('faltam')} ${faltam} SOL).`,
+                 );
+                 setIsSwapLoadingModalVisible(true);
+                 setTimeout(() => setIsSwapLoadingModalVisible(false), 4500);
                  return;
                }
 
                // Sessão ativa: executa direto sem pedir senha
                const sessionKp = keyManager.getSessionKeypair();
                if (sessionKp) {
+                 console.log('[Cambio] Sessão ativa → executeSwap direto');
                  executeSwap(sessionKp);
                  return;
                }
+               console.log('[Cambio] Sem sessão → abrindo modal de senha');
                setIsPasswordModalVisible(true);
              }}
            >
