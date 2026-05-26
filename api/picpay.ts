@@ -137,11 +137,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const chargeLabel = `${buyer.firstName} ${buyer.lastName}`.trim() || 'Cobrança Verum';
 
+      // Payment Link aceita order_number com até 15 chars. Nosso id interno
+      // (vest-{uuid}-{ts}) tem ~60. Hash determinístico SHA256 → 15 hex chars
+      // (~60 bits de entropia, colisão desprezível).
+      const orderNumber = createHash('sha256')
+        .update(cleanReferenceId)
+        .digest('hex')
+        .slice(0, 15);
+
       const payload = {
         charge: {
           name: chargeLabel,
           description: 'Vesting Verum',
-          order_number: cleanReferenceId,
+          order_number: orderNumber,
           redirect_url: 'https://www.verumcrypto.com',
           payment: {
             methods: ['BRCODE'],
