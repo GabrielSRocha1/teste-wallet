@@ -11,6 +11,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { getApiBaseUrl } from '@/src/services/apiUrl';
 import {
   ActivityIndicator,
@@ -55,6 +56,7 @@ export default function DepositarPixScreen() {
 
   // PIX QR (gerado via API PicPay internamente)
   const [pixQrBase64, setPixQrBase64] = useState<string | null>(null);
+  const [pixQrContent, setPixQrContent] = useState<string | null>(null);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
 
   // KYC gate state
@@ -191,18 +193,48 @@ export default function DepositarPixScreen() {
         }),
       });
 
-      if (!res.ok) throw new Error('Falha ao gerar QR Code PIX');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error('[PIX] /api/picpay falhou', res.status, errText);
+        throw new Error(`PIX ${res.status}: ${errText.slice(0, 200) || 'falha desconhecida'}`);
+      }
       const data = await res.json();
 
-      if (data.qrcode?.base64) {
-        setPixQrBase64(data.qrcode.base64);
-        setOrderId(newOrderId);
-        setIsGenerated(true);
-        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150);
-      } else {
+      // (C6) Antes dependíamos do PNG base64 que o PicPay devolve no campo
+      // `qrcode.base64`. Em alguns cenários (RN Web, base64 mal-formada) o
+      // <Image source={{ uri }}> falhava silenciosamente e o usuário via
+      // a tela do QR vazia. Agora geramos o QR localmente a partir do
+      // `pixContent` (BR Code EMV padrão Pix) — fonte de verdade canônica —
+      // e usamos o base64 da PicPay só como fallback se o content faltar.
+      const pixContent: string | null = data.qrcode?.content ?? null;
+      const remoteBase64: string | null = data.qrcode?.base64 ?? null;
+
+      if (!pixContent && !remoteBase64) {
+        console.error('[PIX] resposta sem qrcode', data);
         throw new Error('QR Code não retornado');
       }
+
+      let finalBase64 = remoteBase64;
+      if (pixContent) {
+        try {
+          finalBase64 = await QRCode.toDataURL(pixContent, {
+            errorCorrectionLevel: 'M',
+            margin: 2,
+            width: 320,
+            color: { dark: '#000000', light: '#ffffff' },
+          });
+        } catch (qrErr) {
+          console.warn('[PIX] geração local falhou, usando base64 remota', qrErr);
+        }
+      }
+
+      setPixQrBase64(finalBase64);
+      setPixQrContent(pixContent);
+      setOrderId(newOrderId);
+      setIsGenerated(true);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150);
     } catch (e: any) {
+      console.error('[PIX] handleGeneratePixPayment error', e);
       Alert.alert(t('ERRO'), e.message || 'Erro ao gerar PIX');
     } finally {
       setIsGeneratingPix(false);
@@ -460,9 +492,32 @@ export default function DepositarPixScreen() {
             {paymentMethod === 'pix' && pixQrBase64 ? (
               <View style={styles.qrBox}>
                 <View style={styles.qrInner}>
-                  <Image source={{ uri: pixQrBase64 }} style={styles.qrImg} />
+                  <Image
+                    source={{ uri: pixQrBase64 }}
+                    style={styles.qrImg}
+                    resizeMode="contain"
+                    onError={(e) => console.warn('[PIX] Image render failed', e?.nativeEvent)}
+                  />
                 </View>
                 <Text style={styles.qrL}>{t('Abra seu app bancário e escaneie o QR Code')}</Text>
+
+                {pixQrContent && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(pixQrContent);
+                      Alert.alert('', t('Código PIX copiado!'));
+                    }}
+                    style={styles.pixCopyBox}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={styles.pixCopyLabel}>{t('CÓDIGO COPIA E COLA')}</Text>
+                      <Feather name="copy" size={14} color={V.gold} />
+                    </View>
+                    <Text style={styles.pixCopyContent} numberOfLines={3}>{pixQrContent}</Text>
+                  </TouchableOpacity>
+                )}
+
                 <Text style={{ color: V.muted, fontSize: 10, marginTop: 8 }}>{t('Referência:')} {orderId}</Text>
               </View>
             ) : (
@@ -509,7 +564,7 @@ export default function DepositarPixScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backBtn} onPress={() => { setIsGenerated(false); setPixQrBase64(null); }}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => { setIsGenerated(false); setPixQrBase64(null); setPixQrContent(null); }}>
               <Text style={styles.backBtnT}>{t('VOLTAR / ALTERAR VALOR')}</Text>
             </TouchableOpacity>
           </View>
@@ -752,9 +807,12 @@ const styles = StyleSheet.create({
   alertD: { fontSize: 12, fontFamily: F.body, color: V.muted, lineHeight: 18 },
 
   qrBox: { alignItems: 'center', marginBottom: 24 },
-  qrInner: { padding: 12, backgroundColor: V.surface2, borderRadius: 16, borderWidth: 1, borderColor: V.border },
-  qrImg: { width: 200, height: 200 },
+  qrInner: { padding: 12, backgroundColor: '#ffffff', borderRadius: 16, borderWidth: 1, borderColor: V.border },
+  qrImg: { width: 220, height: 220 },
   qrL: { marginTop: 16, fontSize: 12, fontFamily: F.bold, color: V.muted, letterSpacing: 1, textAlign: 'center' },
+  pixCopyBox: { width: '100%', backgroundColor: V.surface2, padding: 14, borderRadius: V.r8, marginTop: 14, borderWidth: 1, borderColor: V.border },
+  pixCopyLabel: { color: V.gold, fontSize: 10, fontFamily: F.bold, letterSpacing: 1 },
+  pixCopyContent: { color: V.text, fontSize: 11, fontFamily: F.body },
 
   codeT: { color: V.muted, fontSize: 11, fontFamily: F.body },
   backBtn: { marginTop: 16, paddingVertical: 12, alignItems: 'center' },

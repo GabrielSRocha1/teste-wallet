@@ -668,20 +668,20 @@ export default function TransferirScreen() {
                     <Text style={[styles.label, errors.amount && { color: V.danger }]}>VALOR</Text>
                     <View style={[styles.inputWrapper, errors.amount && { borderColor: V.danger, borderWidth: 1 }]}>
                       <TextInput
-                        style={[styles.input, styles.valueInput]}
+                        style={[styles.input, styles.valueInput, { paddingRight: 68 }]}
                         placeholder="0.00"
                         placeholderTextColor={V.muted}
                         keyboardType="decimal-pad"
                         value={amount}
                         onFocus={() => setActiveInput('amount')}
-                        onChangeText={(v) => { 
-                          setAmount(v); 
+                        onChangeText={(v) => {
+                          setAmount(v);
                           setActiveInput('amount');
-                          if (errors.amount) setErrors({...errors, amount: undefined}); 
+                          if (errors.amount) setErrors({...errors, amount: undefined});
                         }}
                       />
-                      <TouchableOpacity onPress={handleMaxPress} style={{ marginRight: 8 }}>
-                        <Text style={styles.maxText}>MÁX</Text>
+                      <TouchableOpacity onPress={handleMaxPress} style={styles.maxBtnInside} activeOpacity={0.7}>
+                        <Text style={styles.maxBtnInsideText}>MÁX</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.valueMeta}>
@@ -895,7 +895,8 @@ const styles = StyleSheet.create({
   dropdownList: { position: 'absolute', top: 76, left: 0, right: 0, backgroundColor: V.surface1, borderRadius: V.r8, borderWidth: 1, borderColor: V.border, zIndex: 100 },
   dropdownItem: { padding: 14, borderBottomWidth: 1, borderBottomColor: V.border },
   dropdownItemText: { color: V.text, fontFamily: F.semi },
-  maxText: { fontSize: 10, fontFamily: F.bold, color: V.gold, backgroundColor: 'rgba(201,168,76,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  maxBtnInside: { position: 'absolute', right: 10, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(201,168,76,0.12)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(201,168,76,0.3)' },
+  maxBtnInsideText: { fontSize: 10, fontFamily: F.bold, color: V.gold, letterSpacing: 1 },
   textArea: { height: 80, paddingHorizontal: 12 },
 
   // Fee Section

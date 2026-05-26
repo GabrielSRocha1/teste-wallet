@@ -27,6 +27,7 @@ import { useSettings } from '@/constants/SettingsContext';
 
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
+import QRCode from 'qrcode';
 import keyManager from '@/src/services/keyManager';
 import transactionService, { VERUM_TREASURY_ADDRESS } from '@/src/services/transactionService';
 import { getApiBaseUrl } from '@/src/services/apiUrl';
@@ -36,6 +37,20 @@ const DURATION_MONTHS = 60;
 const RELEASE_PERCENT = 20;
 const RELEASE_INTERVALS = [12, 24, 36, 48, 60];
 const ADMIN_FEE = '$0.50 ou 2.0% (Verum)';
+
+// Ícones canônicos dos tokens internos Verum — mesma fonte de verdade
+// usada na tela de listagem (app/(tabs)/investir.tsx).
+const TOKEN_IMAGES: Record<string, any> = {
+  BDC: require('../public/BDC.png'),
+  ESCT: { uri: 'https://gateway.lighthouse.storage/ipfs/bafkreig4gwqmpwrvai3boloziuzwxhr4yhadkyxrbofxw4wzmccxtkrw3q' },
+  BRT: { uri: 'https://gateway.lighthouse.storage/ipfs/bafybeihjtb3bae57rzlh4hblksaswxwfgjs4jxwsbeoj6yh5sfl7qso65q' },
+};
+
+const TOKEN_NAMES: Record<string, string> = {
+  BDC: 'BodeCoin',
+  ESCT: 'Escoteiros',
+  BRT: 'Brutos',
+};
 
 function truncateKey(key: string) {
   if (!key) return '—';
@@ -85,9 +100,13 @@ export default function ContratarVestingScreen() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const precoAtual = prices[moeda]?.USD || 0.03;
+  // Preço real do token (mesmo que seja 0 — não usar fallback fixo: usar
+  // 0.03 confundia o BRT com o valor histórico da BDC).
+  const precoAtual = prices[moeda]?.USD ?? 0;
   const valorInvestimento = parseFloat(usdAmount || '0');
-  const quantidadeTokens = valorInvestimento > 0 ? (valorInvestimento / precoAtual) : 0;
+  const quantidadeTokens = valorInvestimento > 0 && precoAtual > 0
+    ? (valorInvestimento / precoAtual)
+    : 0;
 
   const releaseSchedule = useMemo(() => {
     return RELEASE_INTERVALS.map((month) => {
@@ -246,19 +265,43 @@ export default function ContratarVestingScreen() {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
+        console.error('[PIX vesting] /api/picpay falhou', res.status, errText);
         throw new Error(`PicPay ${res.status}: ${errText.slice(0, 200) || t('falha desconhecida')}`);
       }
       const data = await res.json();
 
-      if (!data?.qrcode?.base64) {
+      // (C6) Geramos o QR localmente a partir do BR Code (pixContent) para
+      // não depender do PNG base64 que o PicPay devolve — antes, com base64
+      // mal-formada ou prefixo ausente, o <Image> falhava sem aviso e o
+      // usuário via o modal aberto sem QR. pixContent é a fonte canônica.
+      const pixContent: string | null = data?.qrcode?.content ?? null;
+      const remoteBase64: string | null = data?.qrcode?.base64 ?? null;
+
+      if (!pixContent && !remoteBase64) {
+        console.error('[PIX vesting] resposta sem qrcode', data);
         throw new Error(t('QR Code PIX não retornado pelo gateway.'));
       }
 
-      setPixQrBase64(data.qrcode.base64);
-      setPixQrContent(data.qrcode.content ?? null);
+      let finalBase64 = remoteBase64;
+      if (pixContent) {
+        try {
+          finalBase64 = await QRCode.toDataURL(pixContent, {
+            errorCorrectionLevel: 'M',
+            margin: 2,
+            width: 320,
+            color: { dark: '#000000', light: '#ffffff' },
+          });
+        } catch (qrErr) {
+          console.warn('[PIX vesting] geração local falhou, usando base64 remota', qrErr);
+        }
+      }
+
+      setPixQrBase64(finalBase64);
+      setPixQrContent(pixContent);
       setPixOrderId(newOrderId);
       setIsPixModalVisible(true);
     } catch (e: any) {
+      console.error('[PIX vesting] handleSelectPix error', e);
       Alert.alert(
         t('Falha ao gerar PIX'),
         e?.message || t('Erro inesperado ao criar a cobrança PIX. Tente novamente.'),
@@ -469,12 +512,12 @@ export default function ContratarVestingScreen() {
             <View style={styles.assetRow}>
               <View style={styles.tokenIconWrap}>
                 <Image
-                  source={require('../public/BDC.png')}
+                  source={TOKEN_IMAGES[moeda] ?? TOKEN_IMAGES.BDC}
                   style={styles.tokenIcon}
                 />
               </View>
               <View style={styles.tokenMeta}>
-                <Text style={styles.tokenName}>{moeda}</Text>
+                <Text style={styles.tokenName}>{TOKEN_NAMES[moeda] ?? moeda}</Text>
                 <Text style={styles.tokenPrice}>1 {moeda} = US$ {precoAtual.toFixed(2)}</Text>
               </View>
               <Text style={styles.tokenAmount}>{tokenQtyFormatted}</Text>
@@ -693,11 +736,12 @@ export default function ContratarVestingScreen() {
 
               {pixQrBase64 && (
                 <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                  <View style={{ padding: 12, backgroundColor: V.surface2, borderRadius: V.r12, borderWidth: 1, borderColor: V.border }}>
+                  <View style={{ padding: 12, backgroundColor: '#ffffff', borderRadius: V.r12, borderWidth: 1, borderColor: V.border }}>
                     <Image
                       source={{ uri: pixQrBase64 }}
                       style={{ width: 220, height: 220 }}
                       resizeMode="contain"
+                      onError={(e) => console.warn('[PIX vesting] Image render failed', e?.nativeEvent)}
                     />
                   </View>
                   <Text style={{ color: V.gold, fontFamily: F.bold, fontSize: 18, marginTop: 16 }}>

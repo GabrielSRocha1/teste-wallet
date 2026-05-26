@@ -539,52 +539,56 @@ export default function EnviarCryptoScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.label, errors.amount && { color: V.danger }]}>{t('QUANTIDADE')}</Text>
-                <TouchableOpacity onPress={() => {
+              <Text style={[styles.label, errors.amount && { color: V.danger }]}>{t('QUANTIDADE')}</Text>
+              <View style={[styles.inputWrapper, errors.amount && { borderColor: V.danger, borderWidth: 1 }]}>
+                <TextInput
+                  style={[styles.input, { paddingRight: 78 }]}
+                  placeholder="0.00"
+                  placeholderTextColor={V.muted}
+                  keyboardType="decimal-pad"
+                  value={amount}
+                  onFocus={() => setActiveInput('amount')}
+                  onChangeText={(v) => {
+                    setAmount(v);
+                    setActiveInput('amount');
+                    if (errors.amount) setErrors({...errors, amount: undefined});
+                  }}
+                />
+                <TouchableOpacity
+                  style={styles.maxBtnInside}
+                  activeOpacity={0.7}
+                  onPress={() => {
                     if (crypto === 'Escolha a criptomoeda') return;
                     const token = availableTokens.find(t => t.symbol === crypto);
                     if (token) {
                       const bal = token.balance;
                       const gasEst = crypto === 'SOL' ? 0.000005 : 0;
-                      
+
                       // Regra: Amount + Fee = Bal - Gas
                       // Para valores pequenos, Fee = $0.50 / Price.
                       // Para valores maiores, Fee = Amount * 0.02.
-                      
+
                       const priceObj = prices[crypto];
                       const price = priceObj?.USD ?? priceObj?.BRL ?? 0;
                       const balNet = bal - gasEst;
-                      
+
                       if (price > 0) {
                         const feeFloorInToken = 0.50 / price;
                         let maxWithFloor = balNet - feeFloorInToken;
-                        
+
                         if (maxWithFloor * 0.02 * price > 0.50) {
                           maxWithFloor = balNet / 1.02;
                         }
-                        
+
                         setAmount(Math.max(0, maxWithFloor).toFixed(8).replace(/\.?0+$/, ''));
                       } else {
                         setAmount((balNet / 1.02).toFixed(8).replace(/\.?0+$/, ''));
                       }
                     }
-                }}><Text style={styles.maxBtn}>{t('MÁXIMO')}</Text></TouchableOpacity>
-              </View>
-              <View style={[styles.inputWrapper, errors.amount && { borderColor: V.danger, borderWidth: 1 }]}>
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="0.00" 
-                  placeholderTextColor={V.muted} 
-                  keyboardType="decimal-pad" 
-                  value={amount} 
-                  onFocus={() => setActiveInput('amount')}
-                  onChangeText={(v) => { 
-                    setAmount(v); 
-                    setActiveInput('amount');
-                    if (errors.amount) setErrors({...errors, amount: undefined}); 
-                  }} 
-                />
+                  }}
+                >
+                  <Text style={styles.maxBtnInsideText}>{t('MÁXIMO')}</Text>
+                </TouchableOpacity>
               </View>
               {amount !== '' && parseFloat(amount.replace(',', '.')) > 0 && (prices[crypto]?.USD || prices[crypto]?.BRL) && (
                 <Text style={styles.usdEquivalent}>
@@ -774,13 +778,13 @@ const styles = StyleSheet.create({
   card: { backgroundColor: V.surface1, borderRadius: V.r12, padding: 20, borderWidth: 1, borderColor: V.border, ...V.shadow },
   inputGroup: { marginBottom: 24 },
   label: { fontSize: 11, fontFamily: F.bold, color: V.muted, letterSpacing: 1, marginBottom: 8, marginLeft: 4 },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: V.surface2, borderRadius: V.r8, borderWidth: 1, borderColor: V.border },
   input: { flex: 1, paddingVertical: 14, paddingHorizontal: 16, color: V.text, fontFamily: F.semi, fontSize: 16, height: '100%', backgroundColor: 'transparent', outlineStyle: 'none' as any },
   pickerBox: { backgroundColor: V.surface2, borderRadius: V.r8, borderWidth: 1, borderColor: V.border, overflow: 'hidden' },
   picker: { height: 54, color: V.text, backgroundColor: V.surface2 },
   qrBtn: { position: 'absolute', right: 12, width: 36, height: 36, borderRadius: 8, backgroundColor: V.surface1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: V.border },
-  maxBtn: { fontSize: 10, fontFamily: F.bold, color: V.gold, backgroundColor: 'rgba(201,168,76,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  maxBtnInside: { position: 'absolute', right: 10, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(201,168,76,0.12)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(201,168,76,0.3)' },
+  maxBtnInsideText: { fontSize: 10, fontFamily: F.bold, color: V.gold, letterSpacing: 1 },
   usdEquivalent: { fontSize: 13, fontFamily: F.body, color: V.muted, marginTop: 10, marginLeft: 4 },
   feeSection: { backgroundColor: 'rgba(201,168,76,0.04)', borderRadius: V.r8, borderWidth: 1, borderColor: 'rgba(201,168,76,0.15)', padding: 14, marginBottom: 16 },
   warning: { backgroundColor: 'rgba(201,168,76,0.05)', borderRadius: V.r8, padding: 16, flexDirection: 'row', gap: 12, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(201,168,76,0.1)' },
