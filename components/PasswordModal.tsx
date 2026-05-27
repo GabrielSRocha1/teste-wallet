@@ -31,9 +31,12 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
   }, [errorMessage]);
 
   // Auto-confirma quando o PIN atinge o comprimento máximo
+  // Pequeno delay para o último dot ser pintado antes da confirmação,
+  // dando feedback visual de que a senha foi digitada por completo.
   useEffect(() => {
     if (pin.length === MAX_PIN && !loading) {
-      onConfirm(pin);
+      const timer = setTimeout(() => onConfirm(pin), 180);
+      return () => clearTimeout(timer);
     }
   }, [pin]);
 
