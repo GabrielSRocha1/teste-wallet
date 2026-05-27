@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { V, F } from '@/constants/theme';
@@ -29,6 +29,15 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
   useEffect(() => {
     if (errorMessage) setPin('');
   }, [errorMessage]);
+
+  // Rede de segurança: ao final de qualquer tentativa (loading: true → false),
+  // limpa o PIN para garantir que o usuário possa tentar de novo mesmo se o
+  // parent reutilizar a mesma errorMessage.
+  const wasLoading = useRef(false);
+  useEffect(() => {
+    if (wasLoading.current && !loading) setPin('');
+    wasLoading.current = !!loading;
+  }, [loading]);
 
   // Auto-confirma quando o PIN atinge o comprimento máximo
   // Pequeno delay para o último dot ser pintado antes da confirmação,

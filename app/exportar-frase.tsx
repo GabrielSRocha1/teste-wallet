@@ -48,6 +48,7 @@ export default function ExportarFraseScreen() {
   const [isSecurityModalVisible, setIsSecurityModalVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     LocalAuthentication.hasHardwareAsync().then(has => {
@@ -102,19 +103,20 @@ export default function ExportarFraseScreen() {
 
   const handleConfirmPassword = async (pin: string) => {
     setIsLoading(true);
+    setPasswordError(null);
     try {
       const mnemonic = await keyManager.getMnemonic(pin);
-      if (mnemonic) { 
-        setSecretPhrase(mnemonic); 
-        setIsSecretVisible(true); 
-        setIsSecurityModalVisible(false); 
-        setShowPassword(false); 
+      if (mnemonic) {
+        setSecretPhrase(mnemonic);
+        setIsSecretVisible(true);
+        setIsSecurityModalVisible(false);
+        setShowPassword(false);
       }
       else throw new Error();
-    } catch { 
-      Alert.alert(t('Erro'), t('Senha incorreta.')); 
-    } finally { 
-      setIsLoading(false); 
+    } catch {
+      setPasswordError(t('Senha incorreta. Tente novamente.'));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -200,11 +202,12 @@ export default function ExportarFraseScreen() {
 
       <PasswordModal
         isVisible={isSecurityModalVisible}
-        onClose={() => setIsSecurityModalVisible(false)}
+        onClose={() => { setIsSecurityModalVisible(false); setPasswordError(null); }}
         loading={isLoading}
         title={t('AUTORIZAÇÃO')}
         description={t('Digite sua senha mestre para revelar a frase:')}
         onConfirm={handleConfirmPassword}
+        errorMessage={passwordError || undefined}
       />
     </View>
   );

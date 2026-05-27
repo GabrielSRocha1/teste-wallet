@@ -25,6 +25,7 @@ export default function ConfiguracoesScreen() {
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [userData, setUserData] = useState({ email: '', telefone: '', id: '' });
@@ -433,26 +434,26 @@ export default function ConfiguracoesScreen() {
       <BottomNav activeRoute="none" />
       <Sidebar isVisible={isSidebarVisible} onClose={closeSidebar} activeRoute="configuracoes" />
 
-      <PasswordModal 
+      <PasswordModal
         isVisible={isPasswordModalVisible}
-        onClose={() => setIsPasswordModalVisible(false)}
+        onClose={() => { setIsPasswordModalVisible(false); setPasswordError(null); }}
         loading={loading}
         title={t('VINCULAR BIOMETRIA')}
         description={t('Confirme sua senha mestre para permitir o uso da biometria em transações:')}
+        errorMessage={passwordError || undefined}
         onConfirm={async (password) => {
           setLoading(true);
+          setPasswordError(null);
           try {
-            // Valida se a senha está correta tentando descriptografar
             await keyManager.loadDecrypted(password);
-            
-            // Sucesso! Salva o PIN para uso futuro com biometria
+
             await keyManager.savePinForBiometrics(password);
             setBiometricsEnabled(true);
             await saveBiometricsEnabled(true);
             setIsPasswordModalVisible(false);
             Alert.alert(t('Sucesso'), t('Biometria vinculada com sucesso! Agora você poderá efetuar transações e ver chaves apenas com sua digital/rosto.'));
           } catch (err) {
-            Alert.alert(t('Erro'), t('Senha incorreta. Tente novamente.'));
+            setPasswordError(t('Senha incorreta. Tente novamente.'));
           } finally {
             setLoading(false);
           }

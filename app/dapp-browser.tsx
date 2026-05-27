@@ -622,7 +622,7 @@ export default function DAppBrowserScreen() {
       setUnlockVisible(false);
       setTimeout(() => handleApprove(pkStr), 100);
     } catch (err: any) {
-      setError(err.message || 'PIN incorreto.');
+      setError('Senha incorreta. Tente novamente.');
     } finally {
       setUnlocking(false);
     }
@@ -759,11 +759,12 @@ export default function DAppBrowserScreen() {
 
       <PasswordModal
         isVisible={isUnlockVisible}
-        onClose={() => setUnlockVisible(false)}
+        onClose={() => { setUnlockVisible(false); setError(null); }}
         onConfirm={handleUnlock}
         loading={isUnlocking}
         title="DESBLOQUEAR CARTEIRA"
         description="Digite seu PIN/Senha para conectar ao dApp."
+        errorMessage={error || undefined}
       />
     </View>
   );

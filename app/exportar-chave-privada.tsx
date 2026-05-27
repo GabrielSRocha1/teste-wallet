@@ -22,6 +22,7 @@ export default function ExportarChavePrivadaScreen() {
   const [copied, setCopied] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const { t } = useSettings();
 
@@ -60,6 +61,7 @@ export default function ExportarChavePrivadaScreen() {
 
   const handleConfirmPassword = async (pin: string) => {
     setLoading(true);
+    setPasswordError(null);
     try {
       const kp = await keyManager.loadDecrypted(pin);
       if (kp) {
@@ -68,7 +70,7 @@ export default function ExportarChavePrivadaScreen() {
         setIsPasswordModalVisible(false);
       }
     } catch {
-      Alert.alert(t('Erro'), t('Senha incorreta.'));
+      setPasswordError(t('Senha incorreta. Tente novamente.'));
     } finally {
       setLoading(false);
     }
@@ -137,13 +139,14 @@ export default function ExportarChavePrivadaScreen() {
         </View>
       </ScrollView>
 
-      <PasswordModal 
+      <PasswordModal
         isVisible={isPasswordModalVisible}
-        onClose={() => setIsPasswordModalVisible(false)}
+        onClose={() => { setIsPasswordModalVisible(false); setPasswordError(null); }}
         loading={loading}
         title={t('AUTORIZAÇÃO')}
         description={t('Digite sua senha mestre para revelar a chave:')}
         onConfirm={handleConfirmPassword}
+        errorMessage={passwordError || undefined}
       />
     </View>
   );
