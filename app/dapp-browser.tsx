@@ -66,6 +66,20 @@ function extractHostname(url: string): string {
   try { return new URL(url).hostname; } catch { return url; }
 }
 
+// Origens first-party do ecossistema Verum que conectam sem pedir permissão
+// (mesmo comportamento "sem prompt" que o app nativo tem ao injetar a sessão).
+// Qualquer outra origem continua passando pelo fluxo de permissão (trustedDapps).
+const FIRST_PARTY_HOSTS = ['vesting.verumcrypto.com'];
+
+function isFirstPartyOrigin(rawOrigin: string): boolean {
+  try {
+    const u = new URL(rawOrigin);
+    return u.protocol === 'https:' && FIRST_PARTY_HOSTS.includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function isValidUrl(text: string): boolean {
   try {
     const url = new URL(text.startsWith('http') ? text : `https://${text}`);
@@ -432,7 +446,37 @@ export default function DAppBrowserScreen() {
   const sendResponse = useCallback((responseMsg: Record<string, any>, targetOrigin?: string) => {
     if (Platform.OS === 'web') {
       const iframeEl = webViewRef.current?.iframe?.current as HTMLIFrameElement | null;
-      iframeEl?.contentWindow?.postMessage(responseMsg, targetOrigin || '*');
+      if (!iframeEl?.contentWindow) return;
+
+      // O bridge web (iframe/postMessage) usa o protocolo "achatado": publicKey,
+      // signedTransaction, etc. no nível raiz da mensagem — diferente do
+      // __cb(id, result, error) usado no WebView nativo. Sem essa tradução, o
+      // portal lê d.publicKey === undefined e a conexão falha só no web.
+      const { type, id, result, error, reason, accounts } = responseMsg;
+      const flat: Record<string, any> = { type, id };
+
+      switch (type) {
+        case VERUM_MSG.CONNECT_RESPONSE:
+          flat.publicKey = result?.publicKey;
+          if (accounts) flat.accounts = accounts;
+          break;
+        case VERUM_MSG.SIGN_TX_RESPONSE:
+          flat.signedTransaction = result;
+          break;
+        case VERUM_MSG.SIGN_ALL_RESPONSE:
+          flat.signedTransactions = result;
+          break;
+        case VERUM_MSG.SIGN_MSG_RESPONSE:
+          flat.signature = result?.signature;
+          flat.publicKey = result?.publicKey;
+          break;
+        default:
+          if (reason !== undefined) flat.reason = reason;
+          else if (error !== undefined) flat.reason = error;
+          break;
+      }
+
+      iframeEl.contentWindow.postMessage(flat, targetOrigin || '*');
     } else {
       const resultPart = responseMsg.result !== undefined ? JSON.stringify(responseMsg.result) : 'null';
       const errorPart  = responseMsg.error ? JSON.stringify(responseMsg.error) : 'null';
@@ -448,7 +492,22 @@ export default function DAppBrowserScreen() {
     try { data = JSON.parse(event.nativeEvent.data); } catch { return; }
 
     const { type, id, origin } = data;
-    if (!type || !id) return;
+    if (!type) return;
+
+    // Handshake (web/iframe): ao carregar, o portal pergunta o estado de conexão
+    // via VERUM_INIT_REQUEST (sem `id`). Respondemos com a sessão atual, se houver,
+    // para reconectar sem o usuário precisar clicar de novo.
+    if (type === VERUM_MSG.INIT_REQUEST) {
+      if (Platform.OS === 'web' && publicKey) {
+        const iframeEl = webViewRef.current?.iframe?.current as HTMLIFrameElement | null;
+        iframeEl?.contentWindow?.postMessage(
+          { type: VERUM_MSG.INIT_RESPONSE, publicKey }, origin || '*',
+        );
+      }
+      return;
+    }
+
+    if (!id) return;
 
     console.log('[VERUM][BROWSER] recv', type, id, origin);
 
@@ -458,8 +517,18 @@ export default function DAppBrowserScreen() {
 
         // Se já conectado, auto-approve
         if (publicKey) {
+          const reqOrigin = origin || currentUrl;
+
+          // First-party (Verum Vesting): conecta direto, sem prompt — replica o
+          // comportamento do app nativo. Demais dApps seguem pelo fluxo normal.
+          if (isFirstPartyOrigin(reqOrigin)) {
+            console.log('[VERUM][BROWSER] First-party Verum -> auto-approve');
+            _approveConnect(publicKey, id, origin);
+            return;
+          }
+
           // Verifica se é um dApp confiável
-          trustedDapps.isTrusted(origin || currentUrl, publicKey).then(trusted => {
+          trustedDapps.isTrusted(reqOrigin, publicKey).then(trusted => {
             if (trusted) {
               console.log('[VERUM][BROWSER] Trusted dApp -> auto-approve');
               _approveConnect(publicKey, id, origin);

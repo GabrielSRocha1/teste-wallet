@@ -172,9 +172,23 @@ export function buildVerumInjectionScript(opts: VerumProviderOptions): string {
 
       // Se for conexão (sucesso do handshake)
       if (cb.type === 'connect' && result && result.publicKey) {
-        var pk = window.verum.__initPublicKey(result.publicKey);
-        window.verum.connected = true;
-        window.verum.publicKey = pk;
+        // result.publicKey pode chegar como string base58 (bridge web/flat) OU
+        // como objeto já empacotado (no nativo, __cb chama __setConnected antes
+        // de settle). Normalizamos SEMPRE para a string base58 e empacotamos uma
+        // única vez. Sem isso, o objeto era re-empacotado (_s virava objeto),
+        // corrompendo toBytes() e fazendo new PublicKey() falhar no adapter do
+        // dApp — a wallet mostrava "CONECTADA" mas o site nunca avançava.
+        var pkRaw = result.publicKey;
+        var pkStr = typeof pkRaw === 'string'
+          ? pkRaw
+          : (pkRaw && typeof pkRaw.toBase58 === 'function'
+              ? pkRaw.toBase58()
+              : (pkRaw && typeof pkRaw.toString === 'function' ? pkRaw.toString() : String(pkRaw)));
+        var pk = window.verum.__initPublicKey(pkStr);
+        window.verum.connected   = true;
+        window.verum.isConnected = true;
+        window.verum.publicKey   = pk;
+        result.publicKey         = pk;
         window.verum.emit('connect', pk);
         window.verum.emit('accountChanged', pk);
         log('CONNECTED', pk.toString());
@@ -278,10 +292,16 @@ export function buildVerumInjectionScript(opts: VerumProviderOptions): string {
   // ── Serialização de Transaction / VersionedTransaction ────────────────────
   function serializeTx(tx) {
     var bytes;
-    // VersionedTransaction (sem campo .signatures, usa .serialize() direto)
-    if (tx.version !== undefined) {
+    // Wallet Standard (solana:signTransaction) entrega os bytes já serializados
+    // como Uint8Array — não há objeto Transaction para .serialize(). Sem este
+    // ramo, serializeTx lançava INVALID_PAYLOAD e a assinatura falhava só pela
+    // lista de carteiras do dApp.
+    if (tx instanceof Uint8Array) {
+      bytes = tx;
+    } else if (tx && tx.version !== undefined) {
+      // VersionedTransaction (sem campo .signatures, usa .serialize() direto)
       bytes = tx.serialize();
-    } else if (typeof tx.serialize === 'function') {
+    } else if (tx && typeof tx.serialize === 'function') {
       // Transaction legada
       bytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
     } else {
@@ -569,26 +589,36 @@ if (!window.solana) {
     }
   };
 
-  // Registra via navigator.wallets.register() se disponível
+  // Registra via navigator.wallets.register() se disponível (API legada)
   if (navigator.wallets && typeof navigator.wallets.register === 'function') {
     navigator.wallets.register(walletObj);
     log('DETECTION', 'Wallet Standard registrado via navigator.wallets');
   }
 
-  // Registra via evento wallet-standard:register-wallet
+  // Callback no formato exigido pelo Wallet Standard: o app entrega a API
+  // { register } e a carteira chama register(walletObj). Antes o detail era
+  // um objeto { register: fn }, então o app fazia detail({register}) num objeto
+  // não-chamável → registro falhava silenciosamente e a Verum não aparecia na
+  // lista de carteiras de dApps que usam @solana/wallet-adapter.
+  function registerCallback(api) {
+    if (api && typeof api.register === 'function') {
+      try {
+        api.register(walletObj);
+        log('DETECTION', 'Wallet Standard registrado');
+      } catch (e) {}
+    }
+  }
+
+  // Anuncia para apps que já estão ouvindo. detail DEVE ser o próprio callback.
   try {
     window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', {
-      detail: { register: function(cb) { cb(walletObj); } }
+      detail: registerCallback,
     }));
-  } catch(e) {}
+  } catch (e) {}
 
-  // Escuta wallet-standard:app-ready para registro tardio
+  // Apps que inicializam depois disparam app-ready com detail = a API { register }.
   window.addEventListener('wallet-standard:app-ready', function(e) {
-    var reg = e && e.detail && e.detail.register;
-    if (typeof reg === 'function') {
-      reg(walletObj);
-      log('DETECTION', 'Wallet Standard registrado via app-ready');
-    }
+    registerCallback(e && e.detail);
   });
 })();
 

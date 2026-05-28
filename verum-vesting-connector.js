@@ -1,36 +1,48 @@
 /**
- * VerumVestingConnector v2
+ * VerumVestingConnector v3
  *
- * Script incluído pelo portal vesting.verumcrypto.com para integrar com a
- * Verum Wallet. Detecta window.verum (injetado pelo app nativo via WebView)
- * e realiza a conexão automaticamente quando existe sessão ativa.
+ * Script incluído pelo portal (ex.: vesting.verumcrypto.com via
+ * <Script src="/verum-vesting-connector.js" strategy="beforeInteractive">).
  *
- * Protocolo de comunicação:
- *  - Mobile (WebView): window.verum está disponível; usa ReactNativeWebView bridge
- *  - Web (iframe): window.verum está disponível; usa postMessage cross-origin
+ * Contrato esperado pelo portal:
+ *   window.verumConnector.on('connected', cb)   // cb(publicKeyString)
+ *   await window.verumConnector.init()           // true se houver provider
+ *   // no 'connected', o portal chama o wallet-adapter: connect('verum')
  *
- * Uso no portal vesting:
- *   <script src="verum-vesting-connector.js"></script>
- *   await window.verumConnector.init(onStatusChange);
+ * Funciona em três ambientes:
+ *
+ *  1. WebView nativo  → o app injeta window.verum; aqui só expomos a API
+ *                       window.verumConnector e repassamos os eventos.
+ *  2. Iframe (web)    → NÃO dá para injetar JS cross-origin a partir do app.
+ *                       Mas ESTE script roda DENTRO do iframe, então ele mesmo
+ *                       define window.verum como um provider-ponte (postMessage)
+ *                       com a wallet-pai. Assim o VerumWalletAdapter do portal
+ *                       encontra window.verum, NÃO redireciona para URL morta, e
+ *                       conecta exatamente como no nativo.
+ *  3. Standalone      → sem wallet-pai; não há provider (init() → false).
+ *
+ * Protocolo postMessage (idêntico ao tratado pelo dapp-browser da wallet):
+ *   iframe → pai:  { type, id, origin, ...payload }
+ *   pai → iframe:  { type, id, publicKey | signedTransaction(s) | signature | reason }
  */
 
 (function () {
   'use strict';
 
-  // Evita inicialização dupla
   if (window.verumConnector) return;
 
-  var PROVIDER_TIMEOUT_MS = 3000;
+  var REQUEST_TIMEOUT_MS = 120000;
 
-  // ─── Estado interno ─────────────────────────────────────────────────────────
+  // ─── Estado ───────────────────────────────────────────────────────────────
 
-  var _wallet      = null;
-  var _publicKey   = null;
+  var _wallet = null;
+  var _publicKey = null;
   var _isConnected = false;
-  var _onStatus    = null;
-  var _pending     = {}; // Fila para postMessage cross-origin
+  var _onStatus = null;
+  var _cEvents = {};        // eventos do connector ('connected'/'disconnected')
+  var _pending = {};        // requests da ponte: id → {resolve, reject, timeout}
 
-  // ─── Utilitários ───────────────────────────────────────────────────────────
+  // ─── Utilitários ────────────────────────────────────────────────────────────
 
   function log(msg, data) {
     if (typeof console !== 'undefined') {
@@ -46,8 +58,11 @@
     }
   }
 
-  // Gera ID de request usando CSPRNG do navegador (não Math.random — previsível).
-  // Arquivo é JS plain carregado pelo portal; não pode importar módulos do bundle.
+  function emitConnector(ev, data) {
+    (_cEvents[ev] || []).forEach(function (cb) { try { cb(data); } catch (e) {} });
+  }
+
+  // ID via CSPRNG (Math.random é previsível). Script plain — sem imports do bundle.
   function nextId() {
     var cryptoObj = (typeof window !== 'undefined' ? window.crypto : null) ||
                     (typeof self !== 'undefined' ? self.crypto : null);
@@ -61,211 +76,310 @@
       }
       return 'vc' + hex;
     }
-    // Fallback defensivo — em browsers modernos jamais alcançado.
     return 'vc' + Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
   }
 
-  // ─── Detecção do ambiente ──────────────────────────────────────────────────
+  function bytesToB64(bytes) {
+    var arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    var bin = '';
+    for (var i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    return btoa(bin);
+  }
+
+  function b64ToBytes(str) {
+    var bin = atob(str);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  }
+
+  // base58 → Uint8Array (VerumWalletAdapter faz new PublicKey(publicKey.toBytes())).
+  function bs58ToBytes(s) {
+    var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    var lookup = {};
+    for (var i = 0; i < ALPHABET.length; i++) lookup[ALPHABET[i]] = i;
+    var bytes = [0];
+    for (var i = 0; i < s.length; i++) {
+      var c = lookup[s[i]];
+      if (c === undefined) throw new Error('Invalid base58 character');
+      for (var j = 0; j < bytes.length; j++) {
+        c += bytes[j] * 58;
+        bytes[j] = c & 0xff;
+        c >>= 8;
+      }
+      while (c > 0) {
+        bytes.push(c & 0xff);
+        c >>= 8;
+      }
+    }
+    for (var k = 0; s[k] === '1' && k < s.length - 1; k++) bytes.push(0);
+    return new Uint8Array(bytes.reverse());
+  }
+
+  function makePublicKey(s) {
+    return {
+      _s: s,
+      toString: function () { return this._s; },
+      toBase58: function () { return this._s; },
+      toJSON:   function () { return this._s; },
+      toBytes:  function () { return bs58ToBytes(this._s); },
+      equals:   function (o) { return o && (o.toString() === this._s || o === this._s); },
+    };
+  }
+
+  // Serializa Transaction/VersionedTransaction/Uint8Array → base64 (igual ao nativo).
+  function serializeTx(tx) {
+    var bytes;
+    if (tx instanceof Uint8Array) bytes = tx;
+    else if (tx && tx.version !== undefined) bytes = tx.serialize();
+    else if (tx && typeof tx.serialize === 'function') bytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+    else throw new Error('INVALID_PAYLOAD');
+    return bytesToB64(bytes);
+  }
+
+  function dispatchConnected(pk) {
+    try {
+      window.dispatchEvent(new CustomEvent('verum#connected', { detail: { publicKey: pk } }));
+    } catch (e) {}
+  }
+
+  // ─── Detecção de ambiente ────────────────────────────────────────────────────
 
   var _isWebView = typeof window.ReactNativeWebView !== 'undefined';
   var _isIframe  = (function () { try { return window.self !== window.top; } catch (e) { return true; } })();
+  var _hasInjected = !!(window.verum && window.verum.isVerum) ||
+                     !!(window.solana && window.solana.isVerum);
+  var _bridgeMode = _isIframe && !_isWebView && !_hasInjected;
 
-  // ─── Detecção do provider ──────────────────────────────────────────────────
+  // ─── Ponte postMessage (iframe) ──────────────────────────────────────────────
 
-  /**
-   * Aguarda o provider ser injetado pelo app nativo (event 'verum#initialized')
-   * ou retorna imediatamente se já estiver disponível.
-   */
-  function waitForProvider() {
-    return new Promise(function (resolve) {
-      // Provider já disponível (Mobile / Injeção Direta)
-      if (window.verum && window.verum.isVerum) {
-        return resolve(window.verum);
-      }
-      if (window.solana && window.solana.isVerum) {
-        return resolve(window.solana);
-      }
+  function postToParent(data) {
+    try { window.parent.postMessage(data, '*'); } catch (e) { log('Falha postMessage', e); }
+  }
 
-      // Se for Iframe e não encontrou provider injetado, cria o Mock Provider
-      if (_isIframe && !_isWebView) {
-        log('Ambiente iframe detectado. Criando ponte postMessage...');
-        return resolve(createMockProvider());
-      }
-
-      var timer = null;
-      var onInit = function () {
-        clearTimeout(timer);
-        var provider = (window.verum && window.verum.isVerum)
-          ? window.verum
-          : (window.solana && window.solana.isVerum ? window.solana : null);
-        resolve(provider);
-      };
-
-      window.addEventListener('verum#initialized', onInit, { once: true });
-      document.addEventListener('verum#initialized', onInit, { once: true });
-
-      timer = setTimeout(function () {
-        window.removeEventListener('verum#initialized', onInit);
-        document.removeEventListener('verum#initialized', onInit);
-        var provider = (window.verum && window.verum.isVerum)
-          ? window.verum
-          : (window.solana && window.solana.isVerum ? window.solana : null);
-        
-        if (!provider && _isIframe) {
-           log('Timeout na injeção. Usando ponte postMessage.');
-           return resolve(createMockProvider());
-        }
-        resolve(provider);
-      }, PROVIDER_TIMEOUT_MS);
+  function bridgeRequest(type, payload) {
+    return new Promise(function (resolve, reject) {
+      var id = nextId();
+      var timeout = setTimeout(function () {
+        if (_pending[id]) { delete _pending[id]; reject(new Error('TIMEOUT')); }
+      }, REQUEST_TIMEOUT_MS);
+      _pending[id] = { resolve: resolve, reject: reject, timeout: timeout };
+      var msg = { type: type, id: id, origin: window.location.origin };
+      if (payload) for (var k in payload) if (payload.hasOwnProperty(k)) msg[k] = payload[k];
+      postToParent(msg);
     });
   }
 
-  /**
-   * Cria um mock do window.verum para funcionar via postMessage
-   * quando o portal está em um iframe no navegador.
-   */
-  function createMockProvider() {
-    var mock = {
-      isVerum:     true,
-      isConnected: false,
-      publicKey:   null,
-      
-      _events: {},
-      on:   function(e, cb) { (this._events[e] || (this._events[e] = [])).push(cb); },
-      emit: function(e, d) { (this._events[e] || []).forEach(function(f){ f(d); }); },
+  function settleBridge(id, value, error) {
+    var p = _pending[id];
+    if (!p) return;
+    clearTimeout(p.timeout);
+    delete _pending[id];
+    error ? p.reject(error) : p.resolve(value);
+  }
 
-      connect: function() {
-        return new Promise(function(resolve, reject) {
-          var id = nextId();
-          _pending[id] = { resolve: resolve, reject: reject };
-          window.parent.postMessage({ type: 'VERUM_CONNECT_REQUEST', id: id, origin: window.location.origin }, '*');
+  // ─── Provider-ponte (window.verum no iframe) ─────────────────────────────────
+
+  function buildBridgeProvider() {
+    return {
+      isVerum: true,
+      isPhantom: true,
+      isConnected: false,
+      connected: false,
+      publicKey: null,
+      network: 'mainnet',
+      _events: {},
+
+      on: function (e, cb) { (this._events[e] || (this._events[e] = [])).push(cb); return this; },
+      off: function (e, cb) {
+        if (this._events[e]) this._events[e] = this._events[e].filter(function (f) { return f !== cb; });
+        return this;
+      },
+      emit: function (e, d) {
+        (this._events[e] || []).forEach(function (cb) { try { cb(d); } catch (err) {} });
+      },
+
+      __setConnected: function (pkStr) {
+        this.connected = true;
+        this.isConnected = true;
+        this.publicKey = makePublicKey(pkStr);
+        this.emit('connect', this.publicKey);
+        this.emit('accountChanged', this.publicKey);
+      },
+
+      connect: function () {
+        var self = this;
+        if (self.connected && self.publicKey) return Promise.resolve({ publicKey: self.publicKey });
+        return bridgeRequest('VERUM_CONNECT_REQUEST').then(function () {
+          return { publicKey: self.publicKey };
         });
       },
 
-      disconnect: function() {
-        window.parent.postMessage({ type: 'VERUM_DISCONNECT', origin: window.location.origin }, '*');
+      disconnect: function () {
+        postToParent({ type: 'VERUM_DISCONNECT', origin: window.location.origin });
+        this.connected = false;
         this.isConnected = false;
         this.publicKey = null;
         this.emit('disconnect');
         return Promise.resolve();
       },
 
-      signTransaction: function(tx) {
-        // Nota: O portal precisa converter a transação para Base64 antes (ou o conector faz)
-        // Como o Mock é interno, assumimos que o app pai lidará com o formato.
-        return Promise.reject('Método não suportado via bridge direto. Use o adaptador oficial se possível.');
-      }
-    };
+      signTransaction: function (tx) {
+        return bridgeRequest('VERUM_SIGN_TX_REQUEST', { transaction: serializeTx(tx) })
+          .then(function (b64) { return b64ToBytes(b64); });
+      },
 
-    // Escuta respostas do app pai
-    window.addEventListener('message', function(e) {
+      signAllTransactions: function (txs) {
+        return bridgeRequest('VERUM_SIGN_ALL_REQUEST', { transactions: txs.map(serializeTx) })
+          .then(function (arr) { return arr.map(function (b) { return b64ToBytes(b); }); });
+      },
+
+      signMessage: function (message) {
+        return bridgeRequest('VERUM_SIGN_MSG_REQUEST', { message: bytesToB64(message) })
+          .then(function (r) { return { signature: b64ToBytes(r.signature), publicKey: r.publicKey }; });
+      },
+    };
+  }
+
+  if (_bridgeMode) {
+    var bridge = buildBridgeProvider();
+    window.verum = bridge;
+    if (!window.solana) window.solana = bridge;
+
+    window.addEventListener('message', function (e) {
       var d = e.data;
       if (!d || typeof d !== 'object' || !d.type) return;
 
-      log('Recebeu mensagem do pai:', d.type);
+      switch (d.type) {
+        case 'VERUM_CONNECT_RESPONSE':
+        case 'VERUM_INIT_RESPONSE':
+          if (d.publicKey) {
+            bridge.__setConnected(d.publicKey);
+            if (d.id) settleBridge(d.id, { publicKey: d.publicKey });
+            _publicKey = d.publicKey; _isConnected = true;
+            notifyStatus('connected', d.publicKey);
+            emitConnector('connected', d.publicKey);
+            dispatchConnected(d.publicKey);
+          }
+          break;
 
-      if (d.type === 'VERUM_CONNECT_RESPONSE' || d.type === 'VERUM_INIT_RESPONSE') {
-        mock.isConnected = true;
-        mock.publicKey   = d.publicKey;
-        // Se for resposta a um request pendente (connect)
-        if (d.id && _pending[d.id]) {
-          _pending[d.id].resolve({ publicKey: d.publicKey });
-          delete _pending[d.id];
-        }
-        // Emite eventos
-        mock.emit('connect', d.publicKey);
-        window.dispatchEvent(new CustomEvent('verum#connected', { detail: { publicKey: d.publicKey } }));
-      }
-      
-      if (d.type === 'VERUM_CONNECT_REJECTED') {
-        if (d.id && _pending[d.id]) {
-          _pending[d.id].reject(d.reason || 'USER_REJECTED');
-          delete _pending[d.id];
-        }
+        case 'VERUM_CONNECT_REJECTED':
+          if (d.id) settleBridge(d.id, null, new Error(d.reason || 'USER_REJECTED'));
+          break;
+
+        case 'VERUM_SIGN_TX_RESPONSE':
+          if (d.id) settleBridge(d.id, d.signedTransaction);
+          break;
+        case 'VERUM_SIGN_TX_REJECTED':
+          if (d.id) settleBridge(d.id, null, new Error(d.reason || 'USER_REJECTED'));
+          break;
+
+        case 'VERUM_SIGN_ALL_RESPONSE':
+          if (d.id) settleBridge(d.id, d.signedTransactions);
+          break;
+        case 'VERUM_SIGN_ALL_REJECTED':
+          if (d.id) settleBridge(d.id, null, new Error(d.reason || 'USER_REJECTED'));
+          break;
+
+        case 'VERUM_SIGN_MSG_RESPONSE':
+          if (d.id) settleBridge(d.id, { signature: d.signature, publicKey: d.publicKey });
+          break;
+        case 'VERUM_SIGN_MSG_REJECTED':
+          if (d.id) settleBridge(d.id, null, new Error(d.reason || 'USER_REJECTED'));
+          break;
       }
     });
 
-    // Solicita estado inicial ao carregar (Handshake)
-    window.parent.postMessage({ type: 'VERUM_INIT_REQUEST', origin: window.location.origin }, '*');
-
-    return mock;
+    // Handshake: pergunta ao pai se já existe sessão ativa (fast connect).
+    postToParent({ type: 'VERUM_INIT_REQUEST', origin: window.location.origin });
   }
 
-  // ─── Handlers de estado ────────────────────────────────────────────────────
+  // ─── Resolução do provider ────────────────────────────────────────────────────
 
-  function onConnected(pk) {
-    _publicKey   = pk ? pk.toString() : null;
-    _isConnected = true;
-    log('Estado: Conectado', _publicKey);
-    notifyStatus('connected', _publicKey);
+  function resolveProvider() {
+    if (window.verum && window.verum.isVerum) return window.verum;
+    if (window.solana && window.solana.isVerum) return window.solana;
+    return null;
   }
 
-  function onDisconnected() {
-    _publicKey   = null;
-    _isConnected = false;
-    log('Estado: Desconectado');
-    notifyStatus('disconnected', null);
-  }
-
-  // ─── API pública ───────────────────────────────────────────────────────────
+  // ─── API pública window.verumConnector ────────────────────────────────────────
 
   var connector = {
     get publicKey()   { return _publicKey;   },
     get isConnected() { return _isConnected; },
     get wallet()      { return _wallet;      },
 
+    on: function (event, cb) {
+      (_cEvents[event] || (_cEvents[event] = [])).push(cb);
+      return connector;
+    },
+    off: function (event, cb) {
+      if (_cEvents[event]) _cEvents[event] = _cEvents[event].filter(function (f) { return f !== cb; });
+      return connector;
+    },
+
     init: async function (onStatusChange) {
       _onStatus = onStatusChange || null;
-      log('Inicializando conector...');
+      log('Inicializando...', { bridgeMode: _bridgeMode, hasInjected: _hasInjected });
 
-      var provider = await waitForProvider();
-
-      if (!provider) {
-        log('Verum Wallet não detectada.');
-        return false;
-      }
-
+      var provider = resolveProvider();
+      if (!provider) { log('Verum Wallet não detectada neste ambiente.'); return false; }
       _wallet = provider;
-      
-      // Estado atual
-      if (_wallet.isConnected && _wallet.publicKey) {
-        onConnected(_wallet.publicKey.toString());
+
+      // Já conectado (sessão ativa / push do pai) — avisa o portal.
+      if (provider.connected && provider.publicKey) {
+        _publicKey = provider.publicKey.toString();
+        _isConnected = true;
+        notifyStatus('connected', _publicKey);
+        emitConnector('connected', _publicKey);
       }
 
-      // Eventos
-      if (typeof _wallet.on === 'function') {
-        _wallet.on('connect',    function (pk) { onConnected(pk); });
-        _wallet.on('disconnect', onDisconnected);
-        _wallet.on('accountChanged', function (pk) { onConnected(pk); });
+      // Eventos do provider injetado/ponte.
+      if (typeof provider.on === 'function') {
+        provider.on('connect', function (pk) {
+          _publicKey = pk ? pk.toString() : null; _isConnected = true;
+          notifyStatus('connected', _publicKey);
+          emitConnector('connected', _publicKey);
+        });
+        provider.on('disconnect', function () {
+          _publicKey = null; _isConnected = false;
+          notifyStatus('disconnected', null);
+          emitConnector('disconnected', null);
+        });
+        provider.on('accountChanged', function (pk) {
+          _publicKey = pk ? pk.toString() : null;
+          notifyStatus('connected', _publicKey);
+          emitConnector('connected', _publicKey);
+        });
       }
 
       window.addEventListener('verum#connected', function (e) {
-        if (e.detail && e.detail.publicKey) onConnected(e.detail.publicKey);
+        if (e.detail && e.detail.publicKey) {
+          _publicKey = e.detail.publicKey; _isConnected = true;
+          notifyStatus('connected', _publicKey);
+          emitConnector('connected', _publicKey);
+        }
       });
 
       return true;
     },
 
     connect: async function () {
+      if (!_wallet) _wallet = resolveProvider();
       if (!_wallet) throw new Error('Wallet não inicializada.');
       if (_isConnected && _publicKey) return _publicKey;
 
-      try {
-        var resp = await _wallet.connect({ onlyIfTrusted: true }).catch(function () {
-          return _wallet.connect();
-        });
-        var pk = resp && resp.publicKey ? resp.publicKey.toString() : null;
-        if (pk) onConnected(pk);
-        return pk;
-      } catch (err) {
-        log('Erro na conexão:', err);
-        throw err;
-      }
+      var resp = await _wallet.connect();
+      var pk = resp && resp.publicKey ? resp.publicKey.toString() : null;
+      if (pk) { _publicKey = pk; _isConnected = true; notifyStatus('connected', pk); emitConnector('connected', pk); }
+      return pk;
     },
 
     disconnect: async function () {
-      if (_wallet) try { await _wallet.disconnect(); } catch (e) {}
-      onDisconnected();
+      if (_wallet) { try { await _wallet.disconnect(); } catch (e) {} }
+      _publicKey = null; _isConnected = false;
+      notifyStatus('disconnected', null);
+      emitConnector('disconnected', null);
     },
   };
 

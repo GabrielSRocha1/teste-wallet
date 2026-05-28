@@ -71,7 +71,13 @@ export class VerumWalletAdapter extends BaseMessageSignerWalletAdapter {
   private _readyState: WalletReadyState =
     typeof window === 'undefined' || typeof document === 'undefined'
       ? WalletReadyState.Unsupported
-      : WalletReadyState.Loadable;
+      // O provider pode já existir de forma síncrona: injetado pelo app nativo
+      // (window.verum) OU definido pelo verum-vesting-connector no iframe web
+      // (beforeInteractive). Detectar aqui evita a janela de corrida em que o
+      // adapter redirecionava para deep link (página inexistente) antes do poll.
+      : ((window as any).verum?.isVerum || (window as any).ReactNativeWebView)
+        ? WalletReadyState.Installed
+        : WalletReadyState.Loadable;
 
   constructor(config: VerumWalletAdapterConfig = {}) {
     super();
@@ -122,8 +128,11 @@ export class VerumWalletAdapter extends BaseMessageSignerWalletAdapter {
       if (this._readyState !== WalletReadyState.Loadable && this._readyState !== WalletReadyState.Installed)
         throw new WalletNotReadyError();
 
-      // Redireciona para o Deep Link da Verum em navegação normal de mobile
-      if (this.readyState === WalletReadyState.Loadable && isMobileAndRedirectable()) {
+      // Redireciona para o Deep Link da Verum em navegação normal de mobile.
+      // NUNCA redirecionar quando já existe provider (webview nativo OU ponte do
+      // connector no iframe) — senão o usuário cai numa página inexistente em vez
+      // de conectar pela ponte postMessage.
+      if (this.readyState === WalletReadyState.Loadable && isMobileAndRedirectable() && !window.verum) {
         const url = encodeURIComponent(window.location.href);
         const ref = encodeURIComponent(window.location.origin);
         // Utilizando a estrutura de Deep Link da VerumCrypto
