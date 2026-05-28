@@ -229,19 +229,26 @@ export default function ContratarVestingScreen() {
 
       const newOrderId = `vest-${user.id}-${Date.now()}`;
 
-      // Pré-registra o pedido no banco antes de chamar PicPay (idempotência
-      // se a chamada cair: webhook usa picpay_reference pra reconciliar).
-      const { error: dbError } = await supabase.from('deposit_orders').insert({
-        id: newOrderId,
-        user_id: user.id,
-        wallet_address: profile?.wallet_address ?? userWallet,
-        amount_brl: brlValue,
-        expected_usdt: valorInvestimento,
-        exchange_rate: 0,
-        provider: 'pix',
-        status: 'pending',
-        saga_step: 'PIX_CREATED',
-        expires_at: new Date(Date.now() + 1000 * 60 * 30).toISOString(),
+      // O contrato de vesting é gravado direto em contratos_vesting (a tabela
+      // que alimenta o app Vesting), como 'Pendente' até o pagamento ser
+      // confirmado. As telas de depósito continuam usando deposit_orders.
+      const dataInicio = new Date();
+      const dataFim = new Date();
+      dataFim.setMonth(dataFim.getMonth() + DURATION_MONTHS);
+
+      const { error: dbError } = await supabase.from('contratos_vesting').insert({
+        usuario_id: user.id,
+        moeda: moeda,
+        valor_investimento: valorInvestimento,
+        quantidade_tokens: quantidadeTokens,
+        preco_investimento: precoAtual,
+        public_key: profile?.wallet_address ?? userWallet,
+        tipo_contrato: 'Padrão',
+        data_inicio: dataInicio.toISOString(),
+        duracao_meses: DURATION_MONTHS,
+        data_fim: dataFim.toISOString(),
+        status: 'Pendente',
+        total_liberado: 0,
       });
       if (dbError) throw new Error(dbError.message);
 
