@@ -15,7 +15,6 @@ import QRCode from 'qrcode';
 import { getApiBaseUrl } from '@/src/services/apiUrl';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   AppStateStatus,
   Image,
@@ -29,6 +28,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { notify } from '@/src/utils/notify';
 
 export default function DepositarPixScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
@@ -129,7 +129,7 @@ export default function DepositarPixScreen() {
   const handleGeneratePixPayment = async () => {
     const brlAmount = parseFloat(amount.replace(',', '.')) || 0;
     if (brlAmount < 35) {
-      Alert.alert(t('ERRO'), t('Mínimo R$ 35,00'));
+      notify(t('ERRO'), t('Mínimo R$ 35,00'));
       return;
     }
 
@@ -236,7 +236,12 @@ export default function DepositarPixScreen() {
       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150);
     } catch (e: any) {
       console.error('[PIX] handleGeneratePixPayment error', e);
-      Alert.alert(t('ERRO'), e.message || 'Erro ao gerar PIX');
+      // Erros do Supabase (PostgrestError) trazem code/details/hint além de
+      // message — incluímos para diagnosticar falhas de insert no deposit_orders.
+      const detail = [e?.message, e?.details, e?.hint, e?.code && `(${e.code})`]
+        .filter(Boolean)
+        .join(' — ');
+      notify(t('ERRO'), detail || 'Erro ao gerar PIX');
     } finally {
       setIsGeneratingPix(false);
     }
@@ -250,7 +255,7 @@ export default function DepositarPixScreen() {
     }
     const brlAmount = parseFloat(amount.replace(',', '.')) || 0;
     if (brlAmount < 35) {
-      Alert.alert(t('ERRO'), t('Mínimo R$ 35,00'));
+      notify(t('ERRO'), t('Mínimo R$ 35,00'));
       return;
     }
     setIsConfirming(true);
@@ -286,7 +291,7 @@ export default function DepositarPixScreen() {
       setOrderId(newOrderId);
       setIsSuccessModalVisible(true);
     } catch (e: any) {
-      Alert.alert(t('ERRO'), e.message || t('Erro ao registrar pedido. Tente novamente.'));
+      notify(t('ERRO'), e.message || t('Erro ao registrar pedido. Tente novamente.'));
     } finally {
       setIsConfirming(false);
     }
@@ -451,7 +456,7 @@ export default function DepositarPixScreen() {
               onPress={async () => {
                 const brlAmount = parseFloat(amount.replace(',', '.')) || 0;
                 if (brlAmount < 35) {
-                  Alert.alert(t('ERRO'), t('Mínimo R$ 35,00'));
+                  notify(t('ERRO'), t('Mínimo R$ 35,00'));
                   return;
                 }
                 if (paymentMethod === 'pix') {
@@ -507,7 +512,7 @@ export default function DepositarPixScreen() {
                   <TouchableOpacity
                     onPress={async () => {
                       await Clipboard.setStringAsync(pixQrContent);
-                      Alert.alert('', t('Código PIX copiado!'));
+                      notify('', t('Código PIX copiado!'));
                     }}
                     style={styles.pixCopyBox}
                     activeOpacity={0.75}
@@ -538,14 +543,14 @@ export default function DepositarPixScreen() {
 
                 <View style={styles.dataRow}>
                   <Text style={styles.dataLabel}>{t('Número de conta')}</Text>
-                  <TouchableOpacity onPress={async () => { await Clipboard.setStringAsync('50980784-4'); Alert.alert('', 'Copiado!'); }}>
+                  <TouchableOpacity onPress={async () => { await Clipboard.setStringAsync('50980784-4'); notify('', 'Copiado!'); }}>
                     <Text style={[styles.dataValue, { color: V.gold }]}>50980784-4 <Feather name="copy" size={12} /></Text>
                   </TouchableOpacity>
                 </View>
 
                 <View style={[styles.dataRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.dataLabel}>{t('CNPJ')}</Text>
-                  <TouchableOpacity onPress={async () => { await Clipboard.setStringAsync('61074321000125'); Alert.alert('', 'Copiado!'); }}>
+                  <TouchableOpacity onPress={async () => { await Clipboard.setStringAsync('61074321000125'); notify('', 'Copiado!'); }}>
                     <Text style={[styles.dataValue, { color: V.gold }]}>61.074.321/0001-25 <Feather name="copy" size={12} /></Text>
                   </TouchableOpacity>
                 </View>
