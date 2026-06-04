@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -342,25 +343,45 @@ export default function GraficoTokenScreen() {
           ) : (
             <View style={styles.webviewWrap}>
               {chartUrl && (
-                <WebView
-                  ref={webviewRef}
-                  source={{ uri: chartUrl }}
-                  style={styles.webview}
-                  onLoadStart={() => setIsChartLoading(true)}
-                  onLoadEnd={() => setIsChartLoading(false)}
-                  onError={(e) => {
-                    setIsChartLoading(false);
-                    setChartError(e.nativeEvent?.description || 'erro');
-                  }}
-                  javaScriptEnabled
-                  domStorageEnabled
-                  startInLoadingState={false}
-                  allowsInlineMediaPlayback
-                  mediaPlaybackRequiresUserAction
-                  // Alguns servidores recusam UAs móveis padrão de WebView —
-                  // este UA é amplamente aceito e evita "browser não suportado".
-                  userAgent="Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                />
+                Platform.OS === 'web' ? (
+                  // react-native-webview não suporta web — renderiza iframe direto.
+                  // Usa createElement pra escapar do JSX que o TS de RN não conhece.
+                  React.createElement('iframe', {
+                    src: chartUrl,
+                    style: {
+                      border: 0,
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: '#0A0A0A',
+                    },
+                    allow: 'clipboard-write',
+                    onLoad: () => setIsChartLoading(false),
+                    onError: () => {
+                      setIsChartLoading(false);
+                      setChartError('iframe error');
+                    },
+                  })
+                ) : (
+                  <WebView
+                    ref={webviewRef}
+                    source={{ uri: chartUrl }}
+                    style={styles.webview}
+                    onLoadStart={() => setIsChartLoading(true)}
+                    onLoadEnd={() => setIsChartLoading(false)}
+                    onError={(e) => {
+                      setIsChartLoading(false);
+                      setChartError(e.nativeEvent?.description || 'erro');
+                    }}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    startInLoadingState={false}
+                    allowsInlineMediaPlayback
+                    mediaPlaybackRequiresUserAction
+                    // Alguns servidores recusam UAs móveis padrão de WebView —
+                    // este UA é amplamente aceito e evita "browser não suportado".
+                    userAgent="Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                  />
+                )
               )}
               {(isResolvingPool || isChartLoading) && !chartError && (
                 <View style={styles.loader}>
