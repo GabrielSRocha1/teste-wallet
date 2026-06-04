@@ -224,7 +224,15 @@ export default function ContratarVestingScreen() {
       const kyc = kycRes.data as any;
 
       if (!kyc?.cpf) {
-        throw new Error(t('Conclua a verificação de identidade (KYC) antes de pagar via PIX.'));
+        // Erro silencioso anterior: caía no catch genérico ("Falha ao gerar
+        // PIX") sem indicar o caminho do KYC. Aqui interrompemos cedo com um
+        // alerta dedicado que aponta a página onde o KYC é feito.
+        setIsGeneratingPix(false);
+        Alert.alert(
+          t('Verificação de identidade pendente'),
+          t('Não foi possível gerar o QR Code PIX porque o seu KYC ainda não foi concluído. Verifique se a verificação de identidade já foi feita acessando a página "Comprar Crypto" — o KYC é solicitado lá antes do primeiro pagamento via PIX.'),
+        );
+        return;
       }
 
       const newOrderId = `vest-${user.id}-${Date.now()}`;
