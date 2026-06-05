@@ -564,6 +564,9 @@ function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
                 <Text style={styles.assetB}>{bal}</Text>
                 <Text style={styles.assetFiat}>{formatCurrency(usdValue)}</Text>
             </View>
+            <View style={styles.assetChartBtn}>
+                <MaterialCommunityIcons name="chart-line-variant" size={18} color={V.success} />
+            </View>
         </TouchableOpacity>
     );
 }
@@ -713,6 +716,21 @@ const styles = StyleSheet.create({
   badgeT: { color: V.success, fontSize: 11, fontFamily: F.bold },
   heroFiat: { fontSize: 14, fontFamily: F.body, color: V.muted },
   grid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
+  assetChartBtn: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: 32,
+    height: 32,
+    marginLeft: -16,
+    marginTop: -16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: V.success,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actionBtn: { alignItems: 'center', gap: 10, width: '18%' },
   actionIcon: { width: 56, height: 56, backgroundColor: V.surface1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: V.border, ...V.shadow },
   actionLabel: { fontSize: 9, fontFamily: F.bold, color: V.gold, letterSpacing: 0.5, textAlign: 'center' },
