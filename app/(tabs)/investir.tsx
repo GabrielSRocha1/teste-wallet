@@ -21,9 +21,9 @@ export default function InvestirScreen() {
   // aqui é a fonte de verdade — não precisamos consultar metadata on-chain a
   // cada montagem da tela.
   const [tokensData] = useState({
-    BDC: { imageUrl: require('../../public/BDC.png'), symbol: 'BDC', name: 'BodeCoin', website: 'https://bodecoin.verumcrypto.com' },
-    ESCT: { imageUrl: 'https://gateway.lighthouse.storage/ipfs/bafkreig4gwqmpwrvai3boloziuzwxhr4yhadkyxrbofxw4wzmccxtkrw3q', symbol: 'ESCT', name: 'Escoteiros', website: 'https://escoteiro.verumcrypto.com' },
-    BRT: { imageUrl: 'https://gateway.lighthouse.storage/ipfs/bafybeihjtb3bae57rzlh4hblksaswxwfgjs4jxwsbeoj6yh5sfl7qso65q', symbol: 'BRT', name: 'Brutos', website: 'https://brutos.verumcrypto.com' }
+    BDC: { imageUrl: require('../../public/BDC.png'), symbol: 'BDC', name: 'BodeCoin', website: 'https://bodecoin.mastter.digital' },
+    ESCT: { imageUrl: 'https://gateway.lighthouse.storage/ipfs/bafkreig4gwqmpwrvai3boloziuzwxhr4yhadkyxrbofxw4wzmccxtkrw3q', symbol: 'ESCT', name: 'Escoteiros', website: 'https://escoteiro.mastter.digital' },
+    BRT: { imageUrl: 'https://gateway.lighthouse.storage/ipfs/bafybeihjtb3bae57rzlh4hblksaswxwfgjs4jxwsbeoj6yh5sfl7qso65q', symbol: 'BRT', name: 'Brutos', website: 'https://brutos.mastter.digital' }
   });
 
   return (
