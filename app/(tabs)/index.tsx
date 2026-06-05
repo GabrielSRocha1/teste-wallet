@@ -560,12 +560,12 @@ function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
                     <Text style={styles.assetS}>{sym} • {price != null && price > 0 ? `$${price.toFixed(price > 1 ? 2 : 6)}` : '---'}</Text>
                 </View>
             </View>
+            <View style={styles.assetChartBtn}>
+                <MaterialCommunityIcons name="chart-line-variant" size={24} color={V.success} />
+            </View>
             <View style={styles.assetRight}>
                 <Text style={styles.assetB}>{bal}</Text>
                 <Text style={styles.assetFiat}>{formatCurrency(usdValue)}</Text>
-            </View>
-            <View style={styles.assetChartBtn}>
-                <MaterialCommunityIcons name="chart-line-variant" size={18} color={V.success} />
             </View>
         </TouchableOpacity>
     );
@@ -717,13 +717,9 @@ const styles = StyleSheet.create({
   heroFiat: { fontSize: 14, fontFamily: F.body, color: V.muted },
   grid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
   assetChartBtn: {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    width: 32,
-    height: 32,
-    marginLeft: -16,
-    marginTop: -16,
+    flex: 1,
+    alignSelf: 'stretch',
+    marginHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: V.success,
