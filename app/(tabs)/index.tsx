@@ -561,7 +561,7 @@ function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
                 </View>
             </View>
             <View style={styles.assetChartBtn}>
-                <MaterialCommunityIcons name="chart-line-variant" size={24} color={V.success} />
+                <Feather name="trending-up" size={24} color={V.success} />
             </View>
             <View style={styles.assetRight}>
                 <Text style={styles.assetB}>{bal}</Text>
@@ -720,10 +720,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignSelf: 'stretch',
     marginHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: V.success,
-    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
