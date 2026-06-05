@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignSelf: 'stretch',
     marginHorizontal: 20,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   actionBtn: { alignItems: 'center', gap: 10, width: '18%' },
