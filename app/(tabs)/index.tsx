@@ -290,6 +290,10 @@ export default function HomeScreen() {
     }
   }, [rtBalances.lastUpdated, solWallet.publicKey, userProfile?.id]);
 
+  // Ref do fetcher de variação 24h — declarado ANTES do useFocusEffect que o
+  // referencia, senão TS reclama de "used before declaration" (TDZ).
+  const fetchPriceChangesRef = useRef<(() => Promise<void>) | null>(null);
+
   useFocusEffect(useCallback(() => { loadData(); checkUnread(); fetchPriceChangesRef.current?.(); }, []));
 
   // ── Variação 24h ──────────────────────────────────────────────────────────
@@ -298,7 +302,6 @@ export default function HomeScreen() {
   // DexScreener é AUTORITATIVO para tokens internos (BDC/ESCT/BRT).
   // Importante: nunca defaultar variação ausente para 0 — isso ofuscaria a
   // realidade (gerava "0.00%" estático para tokens sem dado de 24h).
-  const fetchPriceChangesRef = useRef<() => Promise<void>>();
   useEffect(() => {
     let cancelled = false;
     const INTERNAL_MINTS: Record<string, string> = {
@@ -389,7 +392,7 @@ export default function HomeScreen() {
     fetchPriceChangesRef.current = fetchChanges;
     fetchChanges();
     const interval = setInterval(fetchChanges, 15_000);
-    return () => { cancelled = true; clearInterval(interval); fetchPriceChangesRef.current = undefined; };
+    return () => { cancelled = true; clearInterval(interval); fetchPriceChangesRef.current = null; };
   }, []);
 
   const totalBalanceUsdt = (() => {
