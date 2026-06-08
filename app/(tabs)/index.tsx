@@ -296,10 +296,27 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); checkUnread(); fetchPriceChangesRef.current?.(); }, []));
 
+  // Hidrata cache de variação 24h IMEDIATAMENTE no mount (antes do primeiro
+  // fetch terminar). Resolve o "pisca em branco ao recarregar" — sem isso, o
+  // state começa {} e os AssetItems escondem a porcentagem por 1–3s até a rede
+  // responder.
+  useEffect(() => {
+    AsyncStorage.getItem('priceChangesCache').then(raw => {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as { ts: number; data: Record<string, number> };
+        // Cache válido por 1h — depois disso ignoramos pra não exibir dado obsoleto.
+        if (Date.now() - parsed.ts < 60 * 60 * 1000 && parsed.data && typeof parsed.data === 'object') {
+          setPriceChanges(parsed.data);
+        }
+      } catch {}
+    }).catch(() => {});
+  }, []);
+
   // ── Variação 24h ──────────────────────────────────────────────────────────
-  // Polling em 15s + refresh em foco. Fontes em paralelo (Binance, CoinGecko,
-  // DexScreener) com merge prioritário: Binance > CoinGecko para majors;
-  // DexScreener é AUTORITATIVO para tokens internos (BDC/ESCT/BRT).
+  // Polling em 15s + refresh em foco + persistência em AsyncStorage. Fontes em
+  // paralelo (Binance, CoinGecko, DexScreener) com merge prioritário: Binance >
+  // CoinGecko para majors; DexScreener é AUTORITATIVO para tokens internos.
   // Importante: nunca defaultar variação ausente para 0 — isso ofuscaria a
   // realidade (gerava "0.00%" estático para tokens sem dado de 24h).
   useEffect(() => {
@@ -314,23 +331,35 @@ export default function HomeScreen() {
       bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
     };
 
+    // (F7) Timeout manual via AbortController — AbortSignal.timeout() não existe
+    // em runtimes mais antigas (Hermes <0.74, Safari <16, navegadores legados).
+    // Se o método não existir, fetch chega no engine como `signal: undefined`
+    // que rejeita a Promise inteira → fetcher silencia eternamente. Manual ajuda.
+    const fetchWithTimeout = async (url: string, ms = 6_000) => {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), ms);
+      try {
+        const r = await fetch(url, { signal: controller.signal });
+        return r;
+      } finally {
+        clearTimeout(tid);
+      }
+    };
+
     const fetchChanges = async () => {
       try {
         const internalMints = Object.values(INTERNAL_MINTS);
         const coingeckoIds = Object.keys(COINGECKO_TO_SYM);
 
         const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
-          fetch(
+          fetchWithTimeout(
             `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
-            { signal: AbortSignal.timeout(6_000) },
           ).then(r => r.ok ? r.json() : []),
-          fetch(
+          fetchWithTimeout(
             `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd&include_24hr_change=true`,
-            { signal: AbortSignal.timeout(6_000) },
           ).then(r => r.ok ? r.json() : {}),
-          fetch(
+          fetchWithTimeout(
             `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
-            { signal: AbortSignal.timeout(6_000) },
           ).then(r => r.ok ? r.json() : { pairs: [] }),
         ]);
 
@@ -382,7 +411,15 @@ export default function HomeScreen() {
         }
 
         if (!cancelled && Object.keys(changes).length > 0) {
-          setPriceChanges(prev => ({ ...prev, ...changes }));
+          setPriceChanges(prev => {
+            const merged = { ...prev, ...changes };
+            // Persiste pra hidratação instantânea no próximo reload.
+            AsyncStorage.setItem(
+              'priceChangesCache',
+              JSON.stringify({ ts: Date.now(), data: merged }),
+            ).catch(() => {});
+            return merged;
+          });
         }
       } catch (e) {
         // Silencioso: variação 24h é informativa, não crítica.
@@ -487,11 +524,11 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={isRefreshing} 
-            onRefresh={loadData} 
-            tintColor={V.gold} 
-            colors={[V.gold]} 
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => { loadData(); fetchPriceChangesRef.current?.(); }}
+            tintColor={V.gold}
+            colors={[V.gold]}
           />
         }
       >
