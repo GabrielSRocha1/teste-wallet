@@ -11,7 +11,7 @@ import { Buffer } from 'buffer';
 import QRScannerModal from '@/components/QRScannerModal';
 import * as Clipboard from 'expo-clipboard';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, FlatList, Image, Keyboard, Modal, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V, F, PAD } from '@/constants/theme';
@@ -290,9 +290,15 @@ export default function HomeScreen() {
     }
   }, [rtBalances.lastUpdated, solWallet.publicKey, userProfile?.id]);
 
-  useFocusEffect(useCallback(() => { loadData(); checkUnread(); }, []));
+  useFocusEffect(useCallback(() => { loadData(); checkUnread(); fetchPriceChangesRef.current?.(); }, []));
 
-  // Fetch 24h price changes (Binance majors + CoinGecko + DexScreener para tokens internos)
+  // ── Variação 24h ──────────────────────────────────────────────────────────
+  // Polling em 15s + refresh em foco. Fontes em paralelo (Binance, CoinGecko,
+  // DexScreener) com merge prioritário: Binance > CoinGecko para majors;
+  // DexScreener é AUTORITATIVO para tokens internos (BDC/ESCT/BRT).
+  // Importante: nunca defaultar variação ausente para 0 — isso ofuscaria a
+  // realidade (gerava "0.00%" estático para tokens sem dado de 24h).
+  const fetchPriceChangesRef = useRef<() => Promise<void>>();
   useEffect(() => {
     let cancelled = false;
     const INTERNAL_MINTS: Record<string, string> = {
@@ -354,7 +360,12 @@ export default function HomeScreen() {
           const bestPerMint: Record<string, { change: number; liq: number }> = {};
           for (const pair of dex.pairs ?? []) {
             const mint = pair?.baseToken?.address;
-            const change = parseFloat(pair?.priceChange?.h24 ?? '0');
+            // BUG-FIX: DexScreener às vezes omite priceChange.h24 (par sem volume
+            // nas últimas 24h). Defaultar para 0 cria uma "variação fantasma" que
+            // o usuário vê como travada. Só consideramos pares com dado real.
+            const raw = pair?.priceChange?.h24;
+            if (raw === undefined || raw === null) continue;
+            const change = typeof raw === 'number' ? raw : parseFloat(raw);
             const liq = pair?.liquidity?.usd ?? 0;
             if (!mint || isNaN(change)) continue;
             if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
@@ -375,9 +386,10 @@ export default function HomeScreen() {
       }
     };
 
+    fetchPriceChangesRef.current = fetchChanges;
     fetchChanges();
-    const interval = setInterval(fetchChanges, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const interval = setInterval(fetchChanges, 15_000);
+    return () => { cancelled = true; clearInterval(interval); fetchPriceChangesRef.current = undefined; };
   }, []);
 
   const totalBalanceUsdt = (() => {
