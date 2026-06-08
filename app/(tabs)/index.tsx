@@ -303,8 +303,19 @@ export default function HomeScreen() {
 
   // Hidrata cache de variação 24h E âncoras IMEDIATAMENTE no mount (antes do
   // primeiro fetch terminar). Resolve o "pisca em branco ao recarregar".
+  //
+  // (PC-VERSION) Cache versionado: quando trocamos a metodologia/fonte de
+  // variação, bumpamos esta versão pra invalidar cache stale dos clientes
+  // antigos (ex.: trocamos DexScreener→Jupiter e usuários no deploy viam 2.35%
+  // congelado porque o AsyncStorage segurava o valor velho por 1h).
+  // VERSION 3: Jupiter v3 + GeckoTerminal para SOL.
+  const PRICE_CHANGES_CACHE_KEY = 'priceChangesCache.v3';
   useEffect(() => {
-    AsyncStorage.getItem('priceChangesCache').then(raw => {
+    // Limpa caches velhos de versões anteriores para evitar lixo no storage.
+    AsyncStorage.removeItem('priceChangesCache').catch(() => {});
+    AsyncStorage.removeItem('priceChangesCache.v2').catch(() => {});
+
+    AsyncStorage.getItem(PRICE_CHANGES_CACHE_KEY).then(raw => {
       if (!raw) return;
       try {
         const parsed = JSON.parse(raw) as {
@@ -312,8 +323,9 @@ export default function HomeScreen() {
           data: Record<string, number>;
           anchors?: Record<string, number>;
         };
-        // Cache válido por 1h — depois disso ignoramos pra não exibir dado obsoleto.
-        if (Date.now() - parsed.ts < 60 * 60 * 1000 && parsed.data && typeof parsed.data === 'object') {
+        // Cache válido por 10min — depois disso, ignoramos pra não exibir
+        // dado obsoleto. (Antes era 1h, mas ficava muito travado no antigo.)
+        if (Date.now() - parsed.ts < 10 * 60 * 1000 && parsed.data && typeof parsed.data === 'object') {
           setPriceChanges(parsed.data);
           if (parsed.anchors && typeof parsed.anchors === 'object') {
             setPriceAnchors(parsed.anchors);
@@ -326,12 +338,14 @@ export default function HomeScreen() {
   // ── Variação 24h ──────────────────────────────────────────────────────────
   // Polling em 10s + refresh em foco + persistência em AsyncStorage.
   //
-  // PRIORIDADE DE FONTES (a Solflare/Phantom usam Jupiter — alinhar com elas):
-  //   1. Jupiter v3 — AUTORITATIVO para TODO token Solana (SOL, USDC, USDT,
-  //      BDC, ESCT, BRT). Agrega vários pools/oráculos e bate com Birdeye.
-  //   2. Binance — backup para majors não-Solana (BTC, ETH, BNB).
-  //   3. CoinGecko — fallback se Binance bloqueado/falha.
-  //   4. DexScreener — fallback final para tokens internos (se Jupiter cair).
+  // PRIORIDADE DE FONTES (alinhada com o que Solflare mostra):
+  //   1. GeckoTerminal (apenas SOL) — média ponderada de pools de alta liquidez
+  //      (Orca/Raydium) bate ~exato com Solflare.
+  //   2. Jupiter v3 — primária para BDC/ESCT/BRT/USDC/USDT (tokens internos
+  //      e stables). Fallback para SOL se GeckoTerminal cair.
+  //   3. Binance — backup para BTC/ETH/BNB (tokens não-Solana).
+  //   4. CoinGecko — fallback de último recurso.
+  //   5. DexScreener — fallback final para internos.
   // Nunca defaultar variação ausente para 0 — gera "0.00%" fantasma.
   useEffect(() => {
     let cancelled = false;
@@ -379,8 +393,15 @@ export default function HomeScreen() {
           Object.entries(SOLANA_MINTS).map(([sym, mint]) => [mint, sym]),
         );
 
-        const [jupiterRes, binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
-          // PRIORIDADE 1: Jupiter v3 — mesma fonte que a Solflare/Phantom usam.
+        const [geckoSolRes, jupiterRes, binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+          // PRIORIDADE 1 (apenas para SOL): GeckoTerminal — Solflare usa essa
+          // metodologia (média ponderada dos pools de maior liquidez Orca/Raydium).
+          // Para SOL bate ~exato com Solflare; pra outros tokens é menos preciso.
+          fetchWithTimeout(
+            `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${SOLANA_MINTS.SOL}/pools?page=1`,
+          ).then(r => r.ok ? r.json() : { data: [] }),
+          // PRIORIDADE 1 (para BDC/ESCT/BRT/USDC/USDT): Jupiter v3 — Solflare
+          // usa para tokens internos com liquidez baixa.
           fetchWithTimeout(
             `https://lite-api.jup.ag/price/v3?ids=${solanaMintList}`,
           ).then(r => r.ok ? r.json() : {}),
@@ -399,7 +420,31 @@ export default function HomeScreen() {
         const changes: Record<string, number> = {};
         const anchors: Record<string, number> = {};
 
-        // PRIORIDADE 1: Jupiter v3 — alinha com Solflare/Phantom.
+        // PRIORIDADE 1 (SOL): GeckoTerminal — pega o pool de maior liquidez
+        // (tipicamente Orca/Raydium com >$20M USD em reservas).
+        if (geckoSolRes.status === 'fulfilled' && geckoSolRes.value && Array.isArray((geckoSolRes.value as any).data)) {
+          const pools = (geckoSolRes.value as { data: any[] }).data;
+          let best: { change: number; price: number; liq: number } | null = null;
+          for (const pool of pools) {
+            const attrs = pool?.attributes;
+            if (!attrs) continue;
+            const liq = parseFloat(attrs.reserve_in_usd ?? '0');
+            const h24 = attrs.price_change_percentage?.h24;
+            const price = parseFloat(attrs.base_token_price_usd ?? '0');
+            if (h24 === undefined || h24 === null) continue;
+            const change = typeof h24 === 'number' ? h24 : parseFloat(h24);
+            if (isNaN(change) || isNaN(price) || price <= 0) continue;
+            if (!best || liq > best.liq) best = { change, price, liq };
+          }
+          if (best) {
+            changes.SOL = best.change;
+            const anchor = best.price / (1 + best.change / 100);
+            if (isFinite(anchor) && anchor > 0) anchors.SOL = anchor;
+          }
+        }
+
+        // PRIORIDADE 2: Jupiter v3 — primária para BDC/ESCT/BRT/USDC/USDT,
+        // fallback para SOL se GeckoTerminal falhar.
         // Resposta: { [mint]: { usdPrice, priceChange24h, ... } }
         if (jupiterRes.status === 'fulfilled' && jupiterRes.value && typeof jupiterRes.value === 'object') {
           const jup = jupiterRes.value as Record<string, { usdPrice?: number; priceChange24h?: number }>;
@@ -408,8 +453,12 @@ export default function HomeScreen() {
             if (!sym) continue;
             const pct = obj?.priceChange24h;
             const cur = obj?.usdPrice;
-            if (typeof pct === 'number' && !isNaN(pct)) changes[sym] = pct;
-            if (typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
+            // Só sobrescreve se a fonte de maior prioridade (GeckoTerminal p/ SOL)
+            // não populou ainda. Para os demais tokens, Jupiter é a primária.
+            if (changes[sym] === undefined && typeof pct === 'number' && !isNaN(pct)) {
+              changes[sym] = pct;
+            }
+            if (anchors[sym] === undefined && typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
               const anchor = cur / (1 + pct / 100);
               if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
             }
@@ -484,7 +533,7 @@ export default function HomeScreen() {
               const mergedAnchors = { ...prevA, ...anchors };
               // Persiste TUDO junto pra hidratação instantânea no próximo reload.
               AsyncStorage.setItem(
-                'priceChangesCache',
+                PRICE_CHANGES_CACHE_KEY,
                 JSON.stringify({ ts, data: mergedChanges, anchors: mergedAnchors }),
               ).catch(() => {});
               return mergedAnchors;
