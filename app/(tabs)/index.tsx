@@ -308,12 +308,15 @@ export default function HomeScreen() {
   // variação, bumpamos esta versão pra invalidar cache stale dos clientes
   // antigos (ex.: trocamos DexScreener→Jupiter e usuários no deploy viam 2.35%
   // congelado porque o AsyncStorage segurava o valor velho por 1h).
-  // VERSION 3: Jupiter v3 + GeckoTerminal para SOL.
-  const PRICE_CHANGES_CACHE_KEY = 'priceChangesCache.v3';
+  // VERSION 4: pareamento rígido âncora-change por fonte (fix bug onde Jupiter
+  // setava change=4.27% mas DexScreener "vencia" a âncora, corrompendo o
+  // recompute live para ~2.35%).
+  const PRICE_CHANGES_CACHE_KEY = 'priceChangesCache.v4';
   useEffect(() => {
     // Limpa caches velhos de versões anteriores para evitar lixo no storage.
     AsyncStorage.removeItem('priceChangesCache').catch(() => {});
     AsyncStorage.removeItem('priceChangesCache.v2').catch(() => {});
+    AsyncStorage.removeItem('priceChangesCache.v3').catch(() => {});
 
     AsyncStorage.getItem(PRICE_CHANGES_CACHE_KEY).then(raw => {
       if (!raw) return;
@@ -443,9 +446,18 @@ export default function HomeScreen() {
           }
         }
 
+        // REGRA CRÍTICA: âncora e change DEVEM vir da mesma fonte. Misturar
+        // (ex: change=Jupiter 4.27% + anchor=DexScreener derivada de 2.35%)
+        // faz o liveChange = ((price - anchor) / anchor) * 100 ≈ 2.35%, ou seja,
+        // a porcentagem exibida acaba "puxando" pra fonte da âncora, NÃO do change.
+        // Por isso cada fonte só preenche se changes[sym] ainda está vazio.
+
         // PRIORIDADE 2: Jupiter v3 — primária para BDC/ESCT/BRT/USDC/USDT,
         // fallback para SOL se GeckoTerminal falhar.
-        // Resposta: { [mint]: { usdPrice, priceChange24h, ... } }
+        // Resposta: { [mint]: { usdPrice?, priceChange24h, ... } }
+        // ⚠️ Para tokens internos (BDC, ESCT, BRT), Jupiter às vezes NÃO retorna
+        // usdPrice — só priceChange24h. Nesse caso seta apenas o change e deixa
+        // âncora vazia (AssetItem cai pro modo "estático" usando o change direto).
         if (jupiterRes.status === 'fulfilled' && jupiterRes.value && typeof jupiterRes.value === 'object') {
           const jup = jupiterRes.value as Record<string, { usdPrice?: number; priceChange24h?: number }>;
           for (const [mint, obj] of Object.entries(jup)) {
@@ -453,31 +465,31 @@ export default function HomeScreen() {
             if (!sym) continue;
             const pct = obj?.priceChange24h;
             const cur = obj?.usdPrice;
-            // Só sobrescreve se a fonte de maior prioridade (GeckoTerminal p/ SOL)
-            // não populou ainda. Para os demais tokens, Jupiter é a primária.
             if (changes[sym] === undefined && typeof pct === 'number' && !isNaN(pct)) {
               changes[sym] = pct;
-            }
-            if (anchors[sym] === undefined && typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
-              const anchor = cur / (1 + pct / 100);
-              if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+              // Âncora só se Jupiter trouxer o preço. Se não, deixa vazio.
+              if (typeof cur === 'number' && cur > 0) {
+                const anchor = cur / (1 + pct / 100);
+                if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+              }
             }
           }
         }
 
-        // PRIORIDADE 2: Binance — preenche gaps (BTC, ETH, BNB que não estão no Jupiter).
-        // Para majors Solana (SOL, USDC, USDT), só usa se Jupiter falhou.
+        // PRIORIDADE 3: Binance — preenche gaps (BTC, ETH, BNB).
         if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
           for (const item of binanceRes.value as { symbol: string; priceChangePercent: string; openPrice: string }[]) {
             const sym = item.symbol.replace('USDT', '');
             const pct = parseFloat(item.priceChangePercent);
             const open = parseFloat(item.openPrice);
-            if (changes[sym] === undefined && !isNaN(pct)) changes[sym] = pct;
-            if (anchors[sym] === undefined && !isNaN(open) && open > 0) anchors[sym] = open;
+            if (changes[sym] === undefined && !isNaN(pct)) {
+              changes[sym] = pct;
+              if (!isNaN(open) && open > 0) anchors[sym] = open;
+            }
           }
         }
 
-        // PRIORIDADE 3: CoinGecko — fallback se Binance bloqueada/CG cobre BTC/ETH/BNB.
+        // PRIORIDADE 4: CoinGecko — fallback final para majors.
         if (coingeckoRes.status === 'fulfilled') {
           const cg = coingeckoRes.value as Record<string, { usd?: number; usd_24h_change?: number }>;
           for (const [id, obj] of Object.entries(cg || {})) {
@@ -487,15 +499,18 @@ export default function HomeScreen() {
             const cur = obj?.usd;
             if (changes[sym] === undefined && typeof pct === 'number') {
               changes[sym] = pct;
-            }
-            if (anchors[sym] === undefined && typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
-              const anchor = cur / (1 + pct / 100);
-              if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+              if (typeof cur === 'number' && cur > 0) {
+                const anchor = cur / (1 + pct / 100);
+                if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+              }
             }
           }
         }
 
-        // PRIORIDADE 4: DexScreener — só preenche tokens internos se Jupiter falhou.
+        // PRIORIDADE 5: DexScreener — fallback final para BDC/ESCT/BRT se
+        // Jupiter falhar TOTALMENTE. NÃO entra se Jupiter já setou o change
+        // (mesmo sem âncora) — senão a âncora do DexScreener "vence" o change
+        // do Jupiter no recompute live, corrompendo o número exibido.
         if (dexRes.status === 'fulfilled') {
           const dex = dexRes.value as { pairs?: any[] };
           const mintToSym: Record<string, string> = Object.fromEntries(
@@ -517,8 +532,10 @@ export default function HomeScreen() {
           for (const [mint, { change, price }] of Object.entries(bestPerMint)) {
             const sym = mintToSym[mint];
             if (!sym) continue;
-            if (changes[sym] === undefined) changes[sym] = change;
-            if (anchors[sym] === undefined) {
+            // PAREAMENTO RÍGIDO: só preenche se NEM change NEM âncora foram setados
+            // por fonte anterior. Garante que âncora e change são da mesma fonte.
+            if (changes[sym] === undefined && anchors[sym] === undefined) {
+              changes[sym] = change;
               const anchor = price / (1 + change / 100);
               if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
             }
