@@ -38,7 +38,7 @@ export default function HomeScreen() {
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [priceChanges] = useState<Record<string, number>>({});
+  const [priceChanges, setPriceChanges] = useState<Record<string, number>>({});
   const [hasUnread, setHasUnread] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeWallet, setActiveWallet] = useState<any>(null);
@@ -291,6 +291,94 @@ export default function HomeScreen() {
   }, [rtBalances.lastUpdated, solWallet.publicKey, userProfile?.id]);
 
   useFocusEffect(useCallback(() => { loadData(); checkUnread(); }, []));
+
+  // Fetch 24h price changes (Binance majors + CoinGecko + DexScreener para tokens internos)
+  useEffect(() => {
+    let cancelled = false;
+    const INTERNAL_MINTS: Record<string, string> = {
+      BDC: 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9',
+      ESCT: 'Ctauy54NbyabVqGXHuY5wwVEAh29mGhh5KGfif5jppZt',
+      BRT: '3nmVqybqR7iWwynmVtCAe1cBF8S6w3Kk3hTNiCy4UMEE',
+    };
+    const COINGECKO_TO_SYM: Record<string, string> = {
+      solana: 'SOL', tether: 'USDT', 'usd-coin': 'USDC',
+      bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
+    };
+
+    const fetchChanges = async () => {
+      try {
+        const internalMints = Object.values(INTERNAL_MINTS);
+        const coingeckoIds = Object.keys(COINGECKO_TO_SYM);
+
+        const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+          fetch(
+            `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
+            { signal: AbortSignal.timeout(6_000) },
+          ).then(r => r.ok ? r.json() : []),
+          fetch(
+            `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd&include_24hr_change=true`,
+            { signal: AbortSignal.timeout(6_000) },
+          ).then(r => r.ok ? r.json() : {}),
+          fetch(
+            `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
+            { signal: AbortSignal.timeout(6_000) },
+          ).then(r => r.ok ? r.json() : { pairs: [] }),
+        ]);
+
+        if (cancelled) return;
+        const changes: Record<string, number> = {};
+
+        if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
+          for (const item of binanceRes.value as { symbol: string; priceChangePercent: string }[]) {
+            const sym = item.symbol.replace('USDT', '');
+            const pct = parseFloat(item.priceChangePercent);
+            if (!isNaN(pct)) changes[sym] = pct;
+          }
+        }
+
+        if (coingeckoRes.status === 'fulfilled') {
+          const cg = coingeckoRes.value as Record<string, { usd_24h_change?: number }>;
+          for (const [id, obj] of Object.entries(cg || {})) {
+            const sym = COINGECKO_TO_SYM[id];
+            if (sym && changes[sym] === undefined && typeof obj?.usd_24h_change === 'number') {
+              changes[sym] = obj.usd_24h_change;
+            }
+          }
+        }
+
+        if (dexRes.status === 'fulfilled') {
+          const dex = dexRes.value as { pairs?: any[] };
+          const mintToSym: Record<string, string> = Object.fromEntries(
+            Object.entries(INTERNAL_MINTS).map(([sym, mint]) => [mint, sym]),
+          );
+          const bestPerMint: Record<string, { change: number; liq: number }> = {};
+          for (const pair of dex.pairs ?? []) {
+            const mint = pair?.baseToken?.address;
+            const change = parseFloat(pair?.priceChange?.h24 ?? '0');
+            const liq = pair?.liquidity?.usd ?? 0;
+            if (!mint || isNaN(change)) continue;
+            if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
+              bestPerMint[mint] = { change, liq };
+            }
+          }
+          for (const [mint, { change }] of Object.entries(bestPerMint)) {
+            const sym = mintToSym[mint];
+            if (sym) changes[sym] = change;
+          }
+        }
+
+        if (!cancelled && Object.keys(changes).length > 0) {
+          setPriceChanges(prev => ({ ...prev, ...changes }));
+        }
+      } catch (e) {
+        // Silencioso: variação 24h é informativa, não crítica.
+      }
+    };
+
+    fetchChanges();
+    const interval = setInterval(fetchChanges, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   const totalBalanceUsdt = (() => {
     // REGRA DE NEGÓCIO: Mostrar saldo antigo ATÉ que o novo esteja pronto
@@ -551,6 +639,10 @@ function ActionBtn({ icon, customIcon, label, onPress }: any) {
 function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
     const { formatCurrency } = useSettings();
     const usdValue = (parseFloat(bal) * (price || 0));
+    const hasChange = typeof change === 'number' && !isNaN(change);
+    const isPositive = hasChange ? change >= 0 : true;
+    const changeColor = isPositive ? V.success : V.danger;
+    const trendIcon: 'trending-up' | 'trending-down' = isPositive ? 'trending-up' : 'trending-down';
     return (
         <TouchableOpacity style={styles.assetItem} onPress={onPress}>
             <View style={styles.assetLeft}>
@@ -561,7 +653,12 @@ function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
                 </View>
             </View>
             <View style={styles.assetChartBtn}>
-                <Feather name="trending-up" size={24} color={V.success} />
+                <Feather name={trendIcon} size={24} color={changeColor} />
+                {hasChange && (
+                    <Text style={[styles.assetChange, { color: changeColor }]} numberOfLines={1}>
+                        {`${isPositive ? '+' : ''}${change.toFixed(2)}%`}
+                    </Text>
+                )}
             </View>
             <View style={styles.assetRight}>
                 <Text style={styles.assetB}>{bal}</Text>
@@ -722,6 +819,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     alignItems: 'flex-start',
     justifyContent: 'center',
+    gap: 2,
+  },
+  assetChange: {
+    fontSize: 11,
+    fontFamily: F.bold,
+    letterSpacing: 0.3,
   },
   actionBtn: { alignItems: 'center', gap: 10, width: '18%' },
   actionIcon: { width: 56, height: 56, backgroundColor: V.surface1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: V.border, ...V.shadow },
