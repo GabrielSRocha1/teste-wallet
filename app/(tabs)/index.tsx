@@ -39,6 +39,11 @@ export default function HomeScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({});
+  // Preço de 24h atrás (âncora). Usado para recomputar a variação LIVE em cada
+  // render contra o preço atual (que vem do realtimePriceService a cada ~4s).
+  // Sem isso, a porcentagem só atualiza no polling do fetcher — com isso, ela
+  // atualiza junto com o tick de preço, ficando muito mais recente.
+  const [priceAnchors, setPriceAnchors] = useState<Record<string, number>>({});
   const [hasUnread, setHasUnread] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeWallet, setActiveWallet] = useState<any>(null);
@@ -296,35 +301,54 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); checkUnread(); fetchPriceChangesRef.current?.(); }, []));
 
-  // Hidrata cache de variação 24h IMEDIATAMENTE no mount (antes do primeiro
-  // fetch terminar). Resolve o "pisca em branco ao recarregar" — sem isso, o
-  // state começa {} e os AssetItems escondem a porcentagem por 1–3s até a rede
-  // responder.
+  // Hidrata cache de variação 24h E âncoras IMEDIATAMENTE no mount (antes do
+  // primeiro fetch terminar). Resolve o "pisca em branco ao recarregar".
   useEffect(() => {
     AsyncStorage.getItem('priceChangesCache').then(raw => {
       if (!raw) return;
       try {
-        const parsed = JSON.parse(raw) as { ts: number; data: Record<string, number> };
+        const parsed = JSON.parse(raw) as {
+          ts: number;
+          data: Record<string, number>;
+          anchors?: Record<string, number>;
+        };
         // Cache válido por 1h — depois disso ignoramos pra não exibir dado obsoleto.
         if (Date.now() - parsed.ts < 60 * 60 * 1000 && parsed.data && typeof parsed.data === 'object') {
           setPriceChanges(parsed.data);
+          if (parsed.anchors && typeof parsed.anchors === 'object') {
+            setPriceAnchors(parsed.anchors);
+          }
         }
       } catch {}
     }).catch(() => {});
   }, []);
 
   // ── Variação 24h ──────────────────────────────────────────────────────────
-  // Polling em 15s + refresh em foco + persistência em AsyncStorage. Fontes em
-  // paralelo (Binance, CoinGecko, DexScreener) com merge prioritário: Binance >
-  // CoinGecko para majors; DexScreener é AUTORITATIVO para tokens internos.
-  // Importante: nunca defaultar variação ausente para 0 — isso ofuscaria a
-  // realidade (gerava "0.00%" estático para tokens sem dado de 24h).
+  // Polling em 10s + refresh em foco + persistência em AsyncStorage.
+  //
+  // PRIORIDADE DE FONTES (a Solflare/Phantom usam Jupiter — alinhar com elas):
+  //   1. Jupiter v3 — AUTORITATIVO para TODO token Solana (SOL, USDC, USDT,
+  //      BDC, ESCT, BRT). Agrega vários pools/oráculos e bate com Birdeye.
+  //   2. Binance — backup para majors não-Solana (BTC, ETH, BNB).
+  //   3. CoinGecko — fallback se Binance bloqueado/falha.
+  //   4. DexScreener — fallback final para tokens internos (se Jupiter cair).
+  // Nunca defaultar variação ausente para 0 — gera "0.00%" fantasma.
   useEffect(() => {
     let cancelled = false;
-    const INTERNAL_MINTS: Record<string, string> = {
+    // Mints Solana cobertos por Jupiter — chave: símbolo exibido no app.
+    const SOLANA_MINTS: Record<string, string> = {
+      SOL: 'So11111111111111111111111111111111111111112',
+      USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
       BDC: 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9',
       ESCT: 'Ctauy54NbyabVqGXHuY5wwVEAh29mGhh5KGfif5jppZt',
       BRT: '3nmVqybqR7iWwynmVtCAe1cBF8S6w3Kk3hTNiCy4UMEE',
+    };
+    // Mints internos (fallback via DexScreener se Jupiter falhar).
+    const INTERNAL_MINTS: Record<string, string> = {
+      BDC: SOLANA_MINTS.BDC,
+      ESCT: SOLANA_MINTS.ESCT,
+      BRT: SOLANA_MINTS.BRT,
     };
     const COINGECKO_TO_SYM: Record<string, string> = {
       solana: 'SOL', tether: 'USDT', 'usd-coin': 'USDC',
@@ -350,8 +374,16 @@ export default function HomeScreen() {
       try {
         const internalMints = Object.values(INTERNAL_MINTS);
         const coingeckoIds = Object.keys(COINGECKO_TO_SYM);
+        const solanaMintList = Object.values(SOLANA_MINTS).join(',');
+        const solanaMintToSym: Record<string, string> = Object.fromEntries(
+          Object.entries(SOLANA_MINTS).map(([sym, mint]) => [mint, sym]),
+        );
 
-        const [binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+        const [jupiterRes, binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
+          // PRIORIDADE 1: Jupiter v3 — mesma fonte que a Solflare/Phantom usam.
+          fetchWithTimeout(
+            `https://lite-api.jup.ag/price/v3?ids=${solanaMintList}`,
+          ).then(r => r.ok ? r.json() : {}),
           fetchWithTimeout(
             `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
           ).then(r => r.ok ? r.json() : []),
@@ -365,60 +397,99 @@ export default function HomeScreen() {
 
         if (cancelled) return;
         const changes: Record<string, number> = {};
+        const anchors: Record<string, number> = {};
 
-        if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
-          for (const item of binanceRes.value as { symbol: string; priceChangePercent: string }[]) {
-            const sym = item.symbol.replace('USDT', '');
-            const pct = parseFloat(item.priceChangePercent);
-            if (!isNaN(pct)) changes[sym] = pct;
-          }
-        }
-
-        if (coingeckoRes.status === 'fulfilled') {
-          const cg = coingeckoRes.value as Record<string, { usd_24h_change?: number }>;
-          for (const [id, obj] of Object.entries(cg || {})) {
-            const sym = COINGECKO_TO_SYM[id];
-            if (sym && changes[sym] === undefined && typeof obj?.usd_24h_change === 'number') {
-              changes[sym] = obj.usd_24h_change;
+        // PRIORIDADE 1: Jupiter v3 — alinha com Solflare/Phantom.
+        // Resposta: { [mint]: { usdPrice, priceChange24h, ... } }
+        if (jupiterRes.status === 'fulfilled' && jupiterRes.value && typeof jupiterRes.value === 'object') {
+          const jup = jupiterRes.value as Record<string, { usdPrice?: number; priceChange24h?: number }>;
+          for (const [mint, obj] of Object.entries(jup)) {
+            const sym = solanaMintToSym[mint];
+            if (!sym) continue;
+            const pct = obj?.priceChange24h;
+            const cur = obj?.usdPrice;
+            if (typeof pct === 'number' && !isNaN(pct)) changes[sym] = pct;
+            if (typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
+              const anchor = cur / (1 + pct / 100);
+              if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
             }
           }
         }
 
+        // PRIORIDADE 2: Binance — preenche gaps (BTC, ETH, BNB que não estão no Jupiter).
+        // Para majors Solana (SOL, USDC, USDT), só usa se Jupiter falhou.
+        if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
+          for (const item of binanceRes.value as { symbol: string; priceChangePercent: string; openPrice: string }[]) {
+            const sym = item.symbol.replace('USDT', '');
+            const pct = parseFloat(item.priceChangePercent);
+            const open = parseFloat(item.openPrice);
+            if (changes[sym] === undefined && !isNaN(pct)) changes[sym] = pct;
+            if (anchors[sym] === undefined && !isNaN(open) && open > 0) anchors[sym] = open;
+          }
+        }
+
+        // PRIORIDADE 3: CoinGecko — fallback se Binance bloqueada/CG cobre BTC/ETH/BNB.
+        if (coingeckoRes.status === 'fulfilled') {
+          const cg = coingeckoRes.value as Record<string, { usd?: number; usd_24h_change?: number }>;
+          for (const [id, obj] of Object.entries(cg || {})) {
+            const sym = COINGECKO_TO_SYM[id];
+            if (!sym) continue;
+            const pct = obj?.usd_24h_change;
+            const cur = obj?.usd;
+            if (changes[sym] === undefined && typeof pct === 'number') {
+              changes[sym] = pct;
+            }
+            if (anchors[sym] === undefined && typeof pct === 'number' && typeof cur === 'number' && cur > 0) {
+              const anchor = cur / (1 + pct / 100);
+              if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+            }
+          }
+        }
+
+        // PRIORIDADE 4: DexScreener — só preenche tokens internos se Jupiter falhou.
         if (dexRes.status === 'fulfilled') {
           const dex = dexRes.value as { pairs?: any[] };
           const mintToSym: Record<string, string> = Object.fromEntries(
             Object.entries(INTERNAL_MINTS).map(([sym, mint]) => [mint, sym]),
           );
-          const bestPerMint: Record<string, { change: number; liq: number }> = {};
+          const bestPerMint: Record<string, { change: number; price: number; liq: number }> = {};
           for (const pair of dex.pairs ?? []) {
             const mint = pair?.baseToken?.address;
-            // BUG-FIX: DexScreener às vezes omite priceChange.h24 (par sem volume
-            // nas últimas 24h). Defaultar para 0 cria uma "variação fantasma" que
-            // o usuário vê como travada. Só consideramos pares com dado real.
             const raw = pair?.priceChange?.h24;
             if (raw === undefined || raw === null) continue;
             const change = typeof raw === 'number' ? raw : parseFloat(raw);
+            const price = parseFloat(pair?.priceUsd ?? '0');
             const liq = pair?.liquidity?.usd ?? 0;
-            if (!mint || isNaN(change)) continue;
+            if (!mint || isNaN(change) || isNaN(price) || price <= 0) continue;
             if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
-              bestPerMint[mint] = { change, liq };
+              bestPerMint[mint] = { change, price, liq };
             }
           }
-          for (const [mint, { change }] of Object.entries(bestPerMint)) {
+          for (const [mint, { change, price }] of Object.entries(bestPerMint)) {
             const sym = mintToSym[mint];
-            if (sym) changes[sym] = change;
+            if (!sym) continue;
+            if (changes[sym] === undefined) changes[sym] = change;
+            if (anchors[sym] === undefined) {
+              const anchor = price / (1 + change / 100);
+              if (isFinite(anchor) && anchor > 0) anchors[sym] = anchor;
+            }
           }
         }
 
-        if (!cancelled && Object.keys(changes).length > 0) {
+        if (!cancelled && (Object.keys(changes).length > 0 || Object.keys(anchors).length > 0)) {
+          const ts = Date.now();
           setPriceChanges(prev => {
-            const merged = { ...prev, ...changes };
-            // Persiste pra hidratação instantânea no próximo reload.
-            AsyncStorage.setItem(
-              'priceChangesCache',
-              JSON.stringify({ ts: Date.now(), data: merged }),
-            ).catch(() => {});
-            return merged;
+            const mergedChanges = { ...prev, ...changes };
+            setPriceAnchors(prevA => {
+              const mergedAnchors = { ...prevA, ...anchors };
+              // Persiste TUDO junto pra hidratação instantânea no próximo reload.
+              AsyncStorage.setItem(
+                'priceChangesCache',
+                JSON.stringify({ ts, data: mergedChanges, anchors: mergedAnchors }),
+              ).catch(() => {});
+              return mergedAnchors;
+            });
+            return mergedChanges;
           });
         }
       } catch (e) {
@@ -428,7 +499,10 @@ export default function HomeScreen() {
 
     fetchPriceChangesRef.current = fetchChanges;
     fetchChanges();
-    const interval = setInterval(fetchChanges, 15_000);
+    // (10s) Âncora muda devagar — não precisa polling agressivo. A "frescura"
+    // da porcentagem vem do recompute LIVE no AssetItem usando o preço atual
+    // do realtimePriceService (que já chega a cada ~4s).
+    const interval = setInterval(fetchChanges, 10_000);
     return () => { cancelled = true; clearInterval(interval); fetchPriceChangesRef.current = null; };
   }, []);
 
@@ -621,12 +695,12 @@ export default function HomeScreen() {
                   const isOnChainReady = Object.keys(onChainBalances).length > 0;
                   return (
                     <>
-                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png" name="Solana" sym="SOL" bal={Number(solWallet.balance > 0 ? solWallet.balance : (isOnChainReady && 'SOL' in onChainBalances ? onChainBalances['SOL'] : (userProfile?.saldo_sol || 0))).toFixed(4)} price={prices.SOL} change={priceChanges.SOL} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'SOL' } } as any)} />
-                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png" name="Tether" sym="USDT" bal={Number(isOnChainReady && 'USDT' in onChainBalances ? onChainBalances['USDT'] : (userProfile?.saldo_usdt || 0)).toFixed(2)} price={prices.USDT} change={priceChanges.USDT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'USDT' } } as any)} />
-                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" name="USDC" sym="USDC" bal={Number(isOnChainReady && 'USDC' in onChainBalances ? onChainBalances['USDC'] : (userProfile?.saldo_usdc || 0)).toFixed(2)} price={prices.USDC} change={priceChanges.USDC} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'USDC' } } as any)} />
-                      <AssetItem img={require('../../public/BDC.png')} name="BodeCoin" sym="BDC" bal={Number(isOnChainReady && 'BDC' in onChainBalances ? onChainBalances['BDC'] : (userProfile?.saldo_bdc || 0)).toFixed(2)} price={prices.BDC} change={priceChanges.BDC} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'BDC' } } as any)} />
-                      <AssetItem img="https://gateway.lighthouse.storage/ipfs/bafkreig4gwqmpwrvai3boloziuzwxhr4yhadkyxrbofxw4wzmccxtkrw3q" name="Escoteiros" sym="ESCT" bal={Number(isOnChainReady && 'ESCT' in onChainBalances ? onChainBalances['ESCT'] : (userProfile?.saldo_esct || 0)).toFixed(2)} price={prices.ESCT} change={priceChanges.ESCT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'ESCT' } } as any)} />
-                      <AssetItem img="https://gateway.lighthouse.storage/ipfs/bafybeihjtb3bae57rzlh4hblksaswxwfgjs4jxwsbeoj6yh5sfl7qso65q" name="Brutos" sym="BRT" bal={Number(isOnChainReady && 'BRT' in onChainBalances ? onChainBalances['BRT'] : (userProfile?.saldo_brt || 0)).toFixed(2)} price={prices.BRT} change={priceChanges.BRT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'BRT' } } as any)} />
+                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/solana/info/logo.png" name="Solana" sym="SOL" bal={Number(solWallet.balance > 0 ? solWallet.balance : (isOnChainReady && 'SOL' in onChainBalances ? onChainBalances['SOL'] : (userProfile?.saldo_sol || 0))).toFixed(4)} price={prices.SOL} change={priceChanges.SOL} anchor={priceAnchors.SOL} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'SOL' } } as any)} />
+                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xdAC17F958D2ee523a2206206994597C13D831ec7/logo.png" name="Tether" sym="USDT" bal={Number(isOnChainReady && 'USDT' in onChainBalances ? onChainBalances['USDT'] : (userProfile?.saldo_usdt || 0)).toFixed(2)} price={prices.USDT} change={priceChanges.USDT} anchor={priceAnchors.USDT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'USDT' } } as any)} />
+                      <AssetItem img="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png" name="USDC" sym="USDC" bal={Number(isOnChainReady && 'USDC' in onChainBalances ? onChainBalances['USDC'] : (userProfile?.saldo_usdc || 0)).toFixed(2)} price={prices.USDC} change={priceChanges.USDC} anchor={priceAnchors.USDC} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'USDC' } } as any)} />
+                      <AssetItem img={require('../../public/BDC.png')} name="BodeCoin" sym="BDC" bal={Number(isOnChainReady && 'BDC' in onChainBalances ? onChainBalances['BDC'] : (userProfile?.saldo_bdc || 0)).toFixed(2)} price={prices.BDC} change={priceChanges.BDC} anchor={priceAnchors.BDC} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'BDC' } } as any)} />
+                      <AssetItem img="https://gateway.lighthouse.storage/ipfs/bafkreig4gwqmpwrvai3boloziuzwxhr4yhadkyxrbofxw4wzmccxtkrw3q" name="Escoteiros" sym="ESCT" bal={Number(isOnChainReady && 'ESCT' in onChainBalances ? onChainBalances['ESCT'] : (userProfile?.saldo_esct || 0)).toFixed(2)} price={prices.ESCT} change={priceChanges.ESCT} anchor={priceAnchors.ESCT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'ESCT' } } as any)} />
+                      <AssetItem img="https://gateway.lighthouse.storage/ipfs/bafybeihjtb3bae57rzlh4hblksaswxwfgjs4jxwsbeoj6yh5sfl7qso65q" name="Brutos" sym="BRT" bal={Number(isOnChainReady && 'BRT' in onChainBalances ? onChainBalances['BRT'] : (userProfile?.saldo_brt || 0)).toFixed(2)} price={prices.BRT} change={priceChanges.BRT} anchor={priceAnchors.BRT} onPress={() => router.push({ pathname: '/grafico-token', params: { coin: 'BRT' } } as any)} />
                     </>
                   );
                 })()}
@@ -639,6 +713,7 @@ export default function HomeScreen() {
                     bal={tk.balance.toFixed(tk.decimals > 4 ? 2 : 4)} 
                     price={prices[tk.symbol] || 0} 
                     change={priceChanges[tk.symbol] || 0}
+                    anchor={priceAnchors[tk.symbol]}
                     onPress={() => router.push({ pathname: '/grafico-token', params: { coin: tk.symbol } } as any)}
                   />
                 ))}
@@ -688,11 +763,19 @@ function ActionBtn({ icon, customIcon, label, onPress }: any) {
     );
 }
 
-function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
+function AssetItem({ img, name, sym, bal, price, change, anchor, onPress }: any) {
     const { formatCurrency } = useSettings();
     const usdValue = (parseFloat(bal) * (price || 0));
-    const hasChange = typeof change === 'number' && !isNaN(change);
-    const isPositive = hasChange ? change >= 0 : true;
+    // Variação LIVE: se temos a âncora (preço 24h atrás) e o preço atual em
+    // tempo real, recomputamos a porcentagem em cada render. Isso faz a UI
+    // refletir cada tick de preço (~4s do realtimePriceService) ao invés de
+    // ficar travada no valor do último polling de 10s do fetcher de variação.
+    // Fallback: se não temos âncora ainda, usa o `change` estático da API.
+    const liveChange = (typeof anchor === 'number' && anchor > 0 && typeof price === 'number' && price > 0)
+      ? ((price - anchor) / anchor) * 100
+      : (typeof change === 'number' && !isNaN(change) ? change : null);
+    const hasChange = liveChange !== null;
+    const isPositive = hasChange ? liveChange >= 0 : true;
     const changeColor = isPositive ? V.success : V.danger;
     const trendIcon: 'trending-up' | 'trending-down' = isPositive ? 'trending-up' : 'trending-down';
     return (
@@ -708,7 +791,7 @@ function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
                 <Feather name={trendIcon} size={24} color={changeColor} />
                 {hasChange && (
                     <Text style={[styles.assetChange, { color: changeColor }]} numberOfLines={1}>
-                        {`${isPositive ? '+' : ''}${change.toFixed(2)}%`}
+                        {`${isPositive ? '+' : ''}${liveChange.toFixed(2)}%`}
                     </Text>
                 )}
             </View>
