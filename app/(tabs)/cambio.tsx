@@ -6,7 +6,7 @@ import { supabase } from '@/src/services/supabase';
 import { transactionService, VERUM_TREASURY_ADDRESS, isValidUUID } from '@/src/services/transactionService';
 import { Feather } from '@expo/vector-icons';
 import { Buffer } from 'buffer';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import type { RaydiumSwapQuote } from '@/src/services/transactionService';
 
 import { useSolanaWallet } from '@/src/hooks/useSolanaWallet';
 import { useRealtimeBalances } from '@/src/hooks/useRealtimeBalances';
+import { usePriceChanges24h } from '@/src/hooks/usePriceChanges24h';
 import { translateError } from '@/src/utils/error-translator';
 import notificationService from '@/src/services/notificationService';
 
@@ -74,6 +75,8 @@ export default function CambioScreen() {
   // Saldos em tempo real via WebSocket Solana (SOL + SPL)
   const rtBalances = useRealtimeBalances(solWallet.publicKey, network);
   const onChainBalances = rtBalances.balances;
+  // Variação 24h por símbolo — mesma fonte da Home (Jupiter/GeckoTerminal), bate com Solflare.
+  const { priceChanges } = usePriceChanges24h();
 
   // ── Estado unificado de cotação ──────────────────────────────────────────────
   // Jupiter direto (sem backend) → Raydium fallback
@@ -904,16 +907,34 @@ export default function CambioScreen() {
 
         <View style={styles.market}>
            <Text style={styles.marketTitle}>{t('MERCADO EM TEMPO REAL')}</Text>
-           {TOKENS.filter(t => t.symbol !== 'USDT').map(tk => (
-             <View key={tk.symbol} style={styles.marketItem}>
-                <Image source={typeof tk.imageUrl === 'string' ? { uri: tk.imageUrl } : tk.imageUrl} style={styles.marketIcon} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                   <Text style={styles.marketSym}>{tk.symbol}/USDT</Text>
-                   <Text style={styles.marketPrice}>${prices[tk.symbol]?.toFixed(prices[tk.symbol] > 1 ? 2 : 6) || '---'}</Text>
-                </View>
-                <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveT}>LIVE</Text></View>
-             </View>
-           ))}
+           {TOKENS.filter(t => t.symbol !== 'USDT').map(tk => {
+             const change = priceChanges[tk.symbol];
+             const hasChange = typeof change === 'number' && !isNaN(change);
+             const isPositive = hasChange && change >= 0;
+             const changeColor = isPositive ? V.success : V.danger;
+             return (
+               <TouchableOpacity
+                 key={tk.symbol}
+                 style={styles.marketItem}
+                 onPress={() => router.push({ pathname: '/grafico-token', params: { coin: tk.symbol } } as any)}
+               >
+                  <Image source={typeof tk.imageUrl === 'string' ? { uri: tk.imageUrl } : tk.imageUrl} style={styles.marketIcon} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                     <Text style={styles.marketSym}>{tk.symbol}/USDT</Text>
+                     <Text style={styles.marketPrice}>${prices[tk.symbol]?.toFixed(prices[tk.symbol] > 1 ? 2 : 6) || '---'}</Text>
+                  </View>
+                  {hasChange && (
+                    <View style={styles.marketChangeWrap}>
+                      <Feather name={isPositive ? 'trending-up' : 'trending-down'} size={14} color={changeColor} />
+                      <Text style={[styles.marketChange, { color: changeColor }]} numberOfLines={1}>
+                        {`${isPositive ? '+' : ''}${change.toFixed(2)}%`}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveT}>LIVE</Text></View>
+               </TouchableOpacity>
+             );
+           })}
         </View>
       </ScrollView>
 
@@ -1117,6 +1138,8 @@ const styles = StyleSheet.create({
   marketIcon: { width: 32, height: 32, borderRadius: 16 },
   marketSym: { fontSize: 14, fontFamily: F.bold, color: V.text },
   marketPrice: { fontSize: 11, fontFamily: F.body, color: V.muted },
+  marketChangeWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 },
+  marketChange: { fontSize: 12, fontFamily: F.bold },
   live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(46, 204, 113, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: V.success },
   liveT: { fontSize: 10, fontFamily: F.bold, color: V.success },

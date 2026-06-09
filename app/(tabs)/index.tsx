@@ -18,6 +18,7 @@ import { V, F, PAD } from '@/constants/theme';
 import keyManager from '@/src/services/keyManager';
 import { useSolanaWallet } from '@/src/hooks/useSolanaWallet';
 import { useRealtimeBalances } from '@/src/hooks/useRealtimeBalances';
+import { usePriceChanges24h } from '@/src/hooks/usePriceChanges24h';
 import { blockchainSyncService } from '@/src/services/blockchainSyncService';
 
 if (typeof global.Buffer === 'undefined') { global.Buffer = Buffer; }
@@ -38,7 +39,7 @@ export default function HomeScreen() {
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [priceChanges, setPriceChanges] = useState<Record<string, number>>({});
+  const { priceChanges, refresh: refreshPriceChanges } = usePriceChanges24h();
   const [hasUnread, setHasUnread] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeWallet, setActiveWallet] = useState<any>(null);
@@ -290,230 +291,7 @@ export default function HomeScreen() {
     }
   }, [rtBalances.lastUpdated, solWallet.publicKey, userProfile?.id]);
 
-  // Ref do fetcher de variação 24h — declarado ANTES do useFocusEffect que o
-  // referencia, senão TS reclama de "used before declaration" (TDZ).
-  const fetchPriceChangesRef = useRef<(() => Promise<void>) | null>(null);
-
-  useFocusEffect(useCallback(() => { loadData(); checkUnread(); fetchPriceChangesRef.current?.(); }, []));
-
-  // Hidrata cache de variação 24h IMEDIATAMENTE no mount (antes do primeiro
-  // fetch terminar). Resolve o "pisca em branco ao recarregar".
-  // VERSION 5: removido recompute live por âncora — agora exibimos o change
-  // direto da fonte primária (Jupiter para tokens Solana, GeckoTerminal para
-  // SOL), garantindo paridade EXATA com Solflare.
-  const PRICE_CHANGES_CACHE_KEY = 'priceChangesCache.v5';
-  useEffect(() => {
-    // Limpa caches velhos de versões anteriores para evitar lixo no storage.
-    AsyncStorage.removeItem('priceChangesCache').catch(() => {});
-    AsyncStorage.removeItem('priceChangesCache.v2').catch(() => {});
-    AsyncStorage.removeItem('priceChangesCache.v3').catch(() => {});
-    AsyncStorage.removeItem('priceChangesCache.v4').catch(() => {});
-
-    AsyncStorage.getItem(PRICE_CHANGES_CACHE_KEY).then(raw => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as {
-          ts: number;
-          data: Record<string, number>;
-        };
-        if (Date.now() - parsed.ts < 10 * 60 * 1000 && parsed.data && typeof parsed.data === 'object') {
-          setPriceChanges(parsed.data);
-        }
-      } catch {}
-    }).catch(() => {});
-  }, []);
-
-  // ── Variação 24h ──────────────────────────────────────────────────────────
-  // Polling em 10s + refresh em foco + persistência em AsyncStorage.
-  //
-  // PRIORIDADE DE FONTES (alinhada com o que Solflare mostra):
-  //   1. GeckoTerminal (apenas SOL) — média ponderada de pools de alta liquidez
-  //      (Orca/Raydium) bate ~exato com Solflare.
-  //   2. Jupiter v3 — primária para BDC/ESCT/BRT/USDC/USDT (tokens internos
-  //      e stables). Fallback para SOL se GeckoTerminal cair.
-  //   3. Binance — backup para BTC/ETH/BNB (tokens não-Solana).
-  //   4. CoinGecko — fallback de último recurso.
-  //   5. DexScreener — fallback final para internos.
-  // Nunca defaultar variação ausente para 0 — gera "0.00%" fantasma.
-  useEffect(() => {
-    let cancelled = false;
-    // Mints Solana cobertos por Jupiter — chave: símbolo exibido no app.
-    const SOLANA_MINTS: Record<string, string> = {
-      SOL: 'So11111111111111111111111111111111111111112',
-      USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-      USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-      BDC: 'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9',
-      ESCT: 'Ctauy54NbyabVqGXHuY5wwVEAh29mGhh5KGfif5jppZt',
-      BRT: '3nmVqybqR7iWwynmVtCAe1cBF8S6w3Kk3hTNiCy4UMEE',
-    };
-    // Mints internos (fallback via DexScreener se Jupiter falhar).
-    const INTERNAL_MINTS: Record<string, string> = {
-      BDC: SOLANA_MINTS.BDC,
-      ESCT: SOLANA_MINTS.ESCT,
-      BRT: SOLANA_MINTS.BRT,
-    };
-    const COINGECKO_TO_SYM: Record<string, string> = {
-      solana: 'SOL', tether: 'USDT', 'usd-coin': 'USDC',
-      bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB',
-    };
-
-    // (F7) Timeout manual via AbortController — AbortSignal.timeout() não existe
-    // em runtimes mais antigas (Hermes <0.74, Safari <16, navegadores legados).
-    // Se o método não existir, fetch chega no engine como `signal: undefined`
-    // que rejeita a Promise inteira → fetcher silencia eternamente. Manual ajuda.
-    const fetchWithTimeout = async (url: string, ms = 6_000) => {
-      const controller = new AbortController();
-      const tid = setTimeout(() => controller.abort(), ms);
-      try {
-        const r = await fetch(url, { signal: controller.signal });
-        return r;
-      } finally {
-        clearTimeout(tid);
-      }
-    };
-
-    const fetchChanges = async () => {
-      try {
-        const internalMints = Object.values(INTERNAL_MINTS);
-        const coingeckoIds = Object.keys(COINGECKO_TO_SYM);
-        const solanaMintList = Object.values(SOLANA_MINTS).join(',');
-        const solanaMintToSym: Record<string, string> = Object.fromEntries(
-          Object.entries(SOLANA_MINTS).map(([sym, mint]) => [mint, sym]),
-        );
-
-        const [geckoSolRes, jupiterRes, binanceRes, coingeckoRes, dexRes] = await Promise.allSettled([
-          // PRIORIDADE 1 (apenas para SOL): GeckoTerminal — Solflare usa essa
-          // metodologia (média ponderada dos pools de maior liquidez Orca/Raydium).
-          // Para SOL bate ~exato com Solflare; pra outros tokens é menos preciso.
-          fetchWithTimeout(
-            `https://api.geckoterminal.com/api/v2/networks/solana/tokens/${SOLANA_MINTS.SOL}/pools?page=1`,
-          ).then(r => r.ok ? r.json() : { data: [] }),
-          // PRIORIDADE 1 (para BDC/ESCT/BRT/USDC/USDT): Jupiter v3 — Solflare
-          // usa para tokens internos com liquidez baixa.
-          fetchWithTimeout(
-            `https://lite-api.jup.ag/price/v3?ids=${solanaMintList}`,
-          ).then(r => r.ok ? r.json() : {}),
-          fetchWithTimeout(
-            `https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'USDCUSDT']))}`,
-          ).then(r => r.ok ? r.json() : []),
-          fetchWithTimeout(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoIds.join(',')}&vs_currencies=usd&include_24hr_change=true`,
-          ).then(r => r.ok ? r.json() : {}),
-          fetchWithTimeout(
-            `https://api.dexscreener.com/latest/dex/tokens/${internalMints.join(',')}`,
-          ).then(r => r.ok ? r.json() : { pairs: [] }),
-        ]);
-
-        if (cancelled) return;
-        const changes: Record<string, number> = {};
-
-        // PRIORIDADE 1 (SOL): GeckoTerminal — pool de maior liquidez ONDE SOL
-        // É O BASE_TOKEN. Pools tipo ONDO/SOL têm SOL como quote_token e seu
-        // price_change_percentage.h24 reflete a variação do BASE (ONDO), não SOL.
-        // Sem o filtro, pegávamos o pool ONDO/SOL ($151M liq) e exibíamos a
-        // variação da ONDO no card do SOL.
-        if (geckoSolRes.status === 'fulfilled' && geckoSolRes.value && Array.isArray((geckoSolRes.value as any).data)) {
-          const pools = (geckoSolRes.value as { data: any[] }).data;
-          const SOL_MINT = SOLANA_MINTS.SOL;
-          let best: { change: number; liq: number } | null = null;
-          for (const pool of pools) {
-            const attrs = pool?.attributes;
-            const baseId = pool?.relationships?.base_token?.data?.id;
-            if (!attrs || typeof baseId !== 'string' || !baseId.endsWith(SOL_MINT)) continue;
-            const liq = parseFloat(attrs.reserve_in_usd ?? '0');
-            const h24 = attrs.price_change_percentage?.h24;
-            if (h24 === undefined || h24 === null) continue;
-            const change = typeof h24 === 'number' ? h24 : parseFloat(h24);
-            if (isNaN(change)) continue;
-            if (!best || liq > best.liq) best = { change, liq };
-          }
-          if (best) changes.SOL = best.change;
-        }
-
-        // PRIORIDADE 2: Jupiter v3 — primária para BDC/ESCT/BRT/USDC/USDT,
-        // fallback para SOL se GeckoTerminal falhar. Solflare também usa Jupiter,
-        // então isso garante paridade EXATA com o número exibido lá.
-        if (jupiterRes.status === 'fulfilled' && jupiterRes.value && typeof jupiterRes.value === 'object') {
-          const jup = jupiterRes.value as Record<string, { priceChange24h?: number }>;
-          for (const [mint, obj] of Object.entries(jup)) {
-            const sym = solanaMintToSym[mint];
-            if (!sym) continue;
-            const pct = obj?.priceChange24h;
-            if (changes[sym] === undefined && typeof pct === 'number' && !isNaN(pct)) {
-              changes[sym] = pct;
-            }
-          }
-        }
-
-        // PRIORIDADE 3: Binance — preenche gaps (BTC, ETH, BNB).
-        if (binanceRes.status === 'fulfilled' && Array.isArray(binanceRes.value)) {
-          for (const item of binanceRes.value as { symbol: string; priceChangePercent: string }[]) {
-            const sym = item.symbol.replace('USDT', '');
-            const pct = parseFloat(item.priceChangePercent);
-            if (changes[sym] === undefined && !isNaN(pct)) changes[sym] = pct;
-          }
-        }
-
-        // PRIORIDADE 4: CoinGecko — fallback final para majors.
-        if (coingeckoRes.status === 'fulfilled') {
-          const cg = coingeckoRes.value as Record<string, { usd_24h_change?: number }>;
-          for (const [id, obj] of Object.entries(cg || {})) {
-            const sym = COINGECKO_TO_SYM[id];
-            if (!sym) continue;
-            const pct = obj?.usd_24h_change;
-            if (changes[sym] === undefined && typeof pct === 'number') changes[sym] = pct;
-          }
-        }
-
-        // PRIORIDADE 5: DexScreener — fallback final para BDC/ESCT/BRT se
-        // Jupiter falhar TOTALMENTE.
-        if (dexRes.status === 'fulfilled') {
-          const dex = dexRes.value as { pairs?: any[] };
-          const mintToSym: Record<string, string> = Object.fromEntries(
-            Object.entries(INTERNAL_MINTS).map(([sym, mint]) => [mint, sym]),
-          );
-          const bestPerMint: Record<string, { change: number; liq: number }> = {};
-          for (const pair of dex.pairs ?? []) {
-            const mint = pair?.baseToken?.address;
-            const raw = pair?.priceChange?.h24;
-            if (raw === undefined || raw === null) continue;
-            const change = typeof raw === 'number' ? raw : parseFloat(raw);
-            const liq = pair?.liquidity?.usd ?? 0;
-            if (!mint || isNaN(change)) continue;
-            if (!bestPerMint[mint] || liq > bestPerMint[mint].liq) {
-              bestPerMint[mint] = { change, liq };
-            }
-          }
-          for (const [mint, { change }] of Object.entries(bestPerMint)) {
-            const sym = mintToSym[mint];
-            if (!sym) continue;
-            if (changes[sym] === undefined) changes[sym] = change;
-          }
-        }
-
-        if (!cancelled && Object.keys(changes).length > 0) {
-          const ts = Date.now();
-          setPriceChanges(prev => {
-            const merged = { ...prev, ...changes };
-            AsyncStorage.setItem(
-              PRICE_CHANGES_CACHE_KEY,
-              JSON.stringify({ ts, data: merged }),
-            ).catch(() => {});
-            return merged;
-          });
-        }
-      } catch (e) {
-        // Silencioso: variação 24h é informativa, não crítica.
-      }
-    };
-
-    fetchPriceChangesRef.current = fetchChanges;
-    fetchChanges();
-    // (10s) Polling exibe direto o priceChange24h da fonte primária (Jupiter
-    // para tokens Solana, GeckoTerminal para SOL) — mesmo número que Solflare.
-    const interval = setInterval(fetchChanges, 10_000);
-    return () => { cancelled = true; clearInterval(interval); fetchPriceChangesRef.current = null; };
-  }, []);
+  useFocusEffect(useCallback(() => { loadData(); checkUnread(); refreshPriceChanges(); }, [refreshPriceChanges]));
 
   const totalBalanceUsdt = (() => {
     // REGRA DE NEGÓCIO: Mostrar saldo antigo ATÉ que o novo esteja pronto
@@ -609,7 +387,7 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => { loadData(); fetchPriceChangesRef.current?.(); }}
+            onRefresh={() => { loadData(); refreshPriceChanges(); }}
             tintColor={V.gold}
             colors={[V.gold]}
           />
@@ -774,31 +552,23 @@ function ActionBtn({ icon, customIcon, label, onPress }: any) {
 function AssetItem({ img, name, sym, bal, price, change, onPress }: any) {
     const { formatCurrency } = useSettings();
     const usdValue = (parseFloat(bal) * (price || 0));
-    // Exibe direto o priceChange24h da fonte primária (Jupiter para tokens
-    // Solana, GeckoTerminal para SOL) — mesma metodologia da Solflare.
-    // Recompute via anchor foi removido: misturar price=Binance/DexScreener com
-    // anchor=Jupiter/GeckoTerminal produzia porcentagens divergentes.
     const liveChange = (typeof change === 'number' && !isNaN(change)) ? change : null;
     const hasChange = liveChange !== null;
-    const isPositive = hasChange ? liveChange >= 0 : true;
+    const isPositive = hasChange && liveChange >= 0;
     const changeColor = isPositive ? V.success : V.danger;
-    const trendIcon: 'trending-up' | 'trending-down' = isPositive ? 'trending-up' : 'trending-down';
     return (
         <TouchableOpacity style={styles.assetItem} onPress={onPress}>
             <View style={styles.assetLeft}>
                 <View style={styles.assetImgW}><Image source={typeof img === 'string' ? { uri: img } : img} style={styles.assetImg} /></View>
                 <View>
                     <Text style={styles.assetN}>{name}</Text>
-                    <Text style={styles.assetS}>{sym} • {price != null && price > 0 ? `$${price.toFixed(price > 1 ? 2 : 6)}` : '---'}</Text>
-                </View>
-            </View>
-            <View style={styles.assetChartBtn}>
-                <Feather name={trendIcon} size={24} color={changeColor} />
-                {hasChange && (
-                    <Text style={[styles.assetChange, { color: changeColor }]} numberOfLines={1}>
-                        {`${isPositive ? '+' : ''}${liveChange.toFixed(2)}%`}
+                    <Text style={styles.assetS} numberOfLines={1}>
+                        {sym} • {price != null && price > 0 ? `$${price.toFixed(price > 1 ? 2 : 6)}` : '---'}
+                        {hasChange && (
+                            <Text style={{ color: changeColor }}>{`  ${isPositive ? '+' : ''}${liveChange.toFixed(2)}%`}</Text>
+                        )}
                     </Text>
-                )}
+                </View>
             </View>
             <View style={styles.assetRight}>
                 <Text style={styles.assetB}>{bal}</Text>
@@ -953,19 +723,6 @@ const styles = StyleSheet.create({
   badgeT: { color: V.success, fontSize: 11, fontFamily: F.bold },
   heroFiat: { fontSize: 14, fontFamily: F.body, color: V.muted },
   grid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
-  assetChartBtn: {
-    flex: 1,
-    alignSelf: 'stretch',
-    marginHorizontal: 20,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  assetChange: {
-    fontSize: 11,
-    fontFamily: F.bold,
-    letterSpacing: 0.3,
-  },
   actionBtn: { alignItems: 'center', gap: 10, width: '18%' },
   actionIcon: { width: 56, height: 56, backgroundColor: V.surface1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: V.border, ...V.shadow },
   actionLabel: { fontSize: 9, fontFamily: F.bold, color: V.gold, letterSpacing: 0.5, textAlign: 'center' },

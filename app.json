@@ -21,6 +21,20 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.verumcrypto.wallet",
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -141,7 +155,7 @@
         "expo-camera",
         {
           "cameraPermission": "Permitir que o Verum crypto acesse sua câmera para escanear QR codes.",
-          "microphonePermission": "Permitir que o Verum crypto acesse o microfone."
+          "recordAudioAndroid": false
         }
       ],
       "expo-secure-store"
