@@ -18,6 +18,11 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Build artifacts (excedem limite de 100MB do GitHub)
+*.apk
+*.aab
+*.ipa
+
 # Metro
 .metro-health-check*
 
