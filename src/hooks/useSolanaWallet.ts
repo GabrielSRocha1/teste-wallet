@@ -177,7 +177,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
       await keyManager.startSession(wallet.mnemonic, wallet.keypair, pin);
 
       activateWallet(wallet.publicKey);
-      console.log('[useSolanaWallet] Nova wallet criada:', wallet.publicKey.substring(0, 8) + '...');
+      if (__DEV__) console.log('[useSolanaWallet] Nova wallet criada:', wallet.publicKey.substring(0, 8) + '...');
 
       return wallet;
     } catch (err: any) {
@@ -207,7 +207,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
       await keyManager.startSession(wallet.mnemonic, wallet.keypair, pin);
 
       activateWallet(wallet.publicKey);
-      console.log('[useSolanaWallet] Wallet importada:', wallet.publicKey.substring(0, 8) + '...');
+      if (__DEV__) console.log('[useSolanaWallet] Wallet importada:', wallet.publicKey.substring(0, 8) + '...');
 
       return wallet.publicKey;
     } catch (err: any) {
@@ -237,7 +237,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
 
       const address = keypair.publicKey.toBase58();
       activateWallet(address);
-      console.log('[useSolanaWallet] Wallet desbloqueada:', address.substring(0, 8) + '...');
+      if (__DEV__) console.log('[useSolanaWallet] Wallet desbloqueada:', address.substring(0, 8) + '...');
 
       return true;
     } catch (err: any) {
@@ -259,7 +259,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
     safeSetState(setPublicKey, null);
     safeSetState(setBalance, 0);
     safeSetState(setStatus, 'locked' as WalletStatus);
-    console.log('[useSolanaWallet] Wallet bloqueada.');
+    if (__DEV__) console.log('[useSolanaWallet] Wallet bloqueada.');
   }, [unsubscribeBalance, safeSetState]);
 
   // ── API pública: destruir identidade (ação explícita do usuário) ───────
@@ -272,7 +272,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
       safeSetState(setBalance, 0);
       safeSetState(setStatus, 'uninitialized' as WalletStatus);
       safeSetState(setError, null);
-      console.log('[useSolanaWallet] Identidade destruída (wipe total).');
+      if (__DEV__) console.log('[useSolanaWallet] Identidade destruída (wipe total).');
     } catch (err: any) {
       const msg = err.message || 'Falha ao apagar carteira.';
       safeSetState(setError, msg);
@@ -421,7 +421,7 @@ export function useSolanaWallet(network?: 'mainnet' | 'devnet'): UseSolanaWallet
             const address = keypair.publicKey.toBase58();
             activateWallet(address);
             safeSetState(setIsLoading, false as boolean);
-            console.log('[useSolanaWallet] Sessão restaurada automaticamente.');
+            if (__DEV__) console.log('[useSolanaWallet] Sessão restaurada automaticamente.');
             return;
           }
         }

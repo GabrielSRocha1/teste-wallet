@@ -88,7 +88,7 @@ export function useQRScanner(): UseQRScannerResult {
         return;
       }
 
-      console.log('[useQRScanner] QR válido:', payload);
+      if (__DEV__) console.log('[useQRScanner] QR válido:', payload);
 
       const payment: ParsedPayment = {
         network: payload.network,

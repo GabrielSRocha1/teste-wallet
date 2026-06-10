@@ -114,7 +114,7 @@ class BlockchainSyncService {
         console.warn('[BlockchainSync] usuarios upsert error:', userError.message);
       }
 
-      console.log('[BlockchainSync] ✅ Wallet (pública) salva no Supabase:', walletAddress.substring(0, 8) + '...');
+      if (__DEV__) console.log('[BlockchainSync] ✅ Wallet (pública) salva no Supabase:', walletAddress.substring(0, 8) + '...');
       return { success: true };
     } catch (err: any) {
       console.error('[BlockchainSync] saveWalletKeys error:', err.message);
@@ -143,7 +143,7 @@ class BlockchainSyncService {
         mintMap[sym] = (meta as any).mint;
       }
 
-      console.log(`[BlockchainSync] Delegando fetch on-chain (${currentNetwork}) para transactionService: ${walletAddress.substring(0, 8)}...`);
+      if (__DEV__) console.log(`[BlockchainSync] Delegando fetch on-chain (${currentNetwork}) para transactionService: ${walletAddress.substring(0, 8)}...`);
 
       // Delega pro mesmo getBalances do transactionService — uma fonte só de
       // verdade. Aproveita o cache de 2s, evita duplicar 3 RPCs e mantém
@@ -155,7 +155,7 @@ class BlockchainSyncService {
         if (typeof val === 'number') (balances as any)[sym] = val;
       }
 
-      console.log('[BlockchainSync] ✅ Fetch on-chain concluído:', JSON.stringify(balances));
+      if (__DEV__) console.log('[BlockchainSync] ✅ Fetch on-chain concluído:', JSON.stringify(balances));
     } catch (err: any) {
       // Importante: re-lança pra que callers (syncBalancesToSupabase) saibam
       // que o fetch falhou e NÃO sobrescrevam o Supabase com zeros.
@@ -178,7 +178,7 @@ class BlockchainSyncService {
   async syncBalancesToSupabase(userId: string, walletAddress: string): Promise<void> {
     let balances: OnChainBalances;
     try {
-      console.log(`[BlockchainSync] Iniciando sincronização para ${walletAddress.substring(0, 8)}...`);
+      if (__DEV__) console.log(`[BlockchainSync] Iniciando sincronização para ${walletAddress.substring(0, 8)}...`);
       balances = await this.fetchOnChainBalances(walletAddress);
     } catch (err) {
       console.warn('[BlockchainSync] Sync ABORTADO — fetch on-chain falhou, mantendo saldo anterior no Supabase:', err);
@@ -206,7 +206,7 @@ class BlockchainSyncService {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('[BlockchainSync] Payload de sincronização:', payload);
+      if (__DEV__) console.log('[BlockchainSync] Payload de sincronização:', payload);
 
       const { error } = await (supabase
         .from('wallets') as any)
@@ -216,7 +216,7 @@ class BlockchainSyncService {
       if (error) {
         console.warn('[BlockchainSync] syncBalancesToSupabase error:', error.message);
       } else {
-        console.log('[BlockchainSync] ✅ Saldos sincronizados na tabela wallets para:', walletAddress.substring(0, 8));
+        if (__DEV__) console.log('[BlockchainSync] ✅ Saldos sincronizados na tabela wallets para:', walletAddress.substring(0, 8));
       }
     } catch (err) {
       console.warn('[BlockchainSync] syncBalancesToSupabase catch error:', err);
@@ -305,7 +305,7 @@ class BlockchainSyncService {
     if (!prices.USDT || prices.USDT < 0.9 || prices.USDT > 1.1) prices.USDT = 1.0;
     if (!prices.USDC || prices.USDC < 0.9 || prices.USDC > 1.1) prices.USDC = 1.0;
 
-    console.log('[BlockchainSync] ✅ Preços diretos:', Object.keys(prices).join(', '));
+    if (__DEV__) console.log('[BlockchainSync] ✅ Preços diretos:', Object.keys(prices).join(', '));
     return prices;
   }
 

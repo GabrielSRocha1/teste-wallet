@@ -54,6 +54,9 @@ export default function LoginScreen() {
   const [recoveryPin, setRecoveryPin] = useState('');
   const [recoveryPinConfirm, setRecoveryPinConfirm] = useState('');
 
+  // Consentimento (Play Store/Aptoide: usuário precisa aceitar Termos + Privacidade
+  // explicitamente antes de qualquer fluxo de criação/restauração de wallet).
+
   // ── Helper: salva wallet no Supabase (usuarios + wallets) ──────────────────
   const linkWalletToSupabase = async (params: {
     userId: string;
@@ -427,7 +430,11 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.createBtn} onPress={handleStartSetup} disabled={loading}>
+              <TouchableOpacity
+                style={styles.createBtn}
+                onPress={handleStartSetup}
+                disabled={loading}
+              >
                 <LinearGradient
                   colors={[V.gold, '#E5B84B']}
                   start={{ x: 0, y: 0 }}
@@ -438,7 +445,11 @@ export default function LoginScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.importBtn} onPress={openRecoveryModal} disabled={loading}>
+              <TouchableOpacity
+                style={styles.importBtn}
+                onPress={openRecoveryModal}
+                disabled={loading}
+              >
                 <Text style={styles.importBtnText}>{t('RECUPERAR CARTEIRA')}</Text>
               </TouchableOpacity>
             </View>

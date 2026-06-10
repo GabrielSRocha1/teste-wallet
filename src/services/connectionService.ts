@@ -117,7 +117,7 @@ class ConnectionService {
       const validActions = ['signTransaction', 'signAllTransactions', 'signMessage'];
       if (!validActions.includes(action)) return null;
 
-      console.log('[ConnectionService] parseSignURL', { action, origin });
+      if (__DEV__) console.log('[ConnectionService] parseSignURL', { action, origin });
 
       return {
         action,

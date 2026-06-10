@@ -389,7 +389,7 @@ export default function ConfiguracoesScreen() {
 
             <View style={styles.divider} />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.row}
               onPress={() => router.push('/politica-privacidade' as any)}
             >
@@ -404,7 +404,22 @@ export default function ConfiguracoesScreen() {
 
             <View style={styles.divider} />
 
-            <TouchableOpacity 
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/termos-de-uso' as any)}
+            >
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconBox, { borderColor: V.gold + '40' }]}>
+                  <Feather name="book-open" size={18} color={V.gold} />
+                </View>
+                <Text style={styles.rowText}>{t('Termos de Uso')}</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color={V.muted} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
               style={styles.row}
               onPress={() => Linking.openURL('https://lp.verumcrypto.com')}
             >
@@ -421,12 +436,15 @@ export default function ConfiguracoesScreen() {
 
         <View style={styles.footer}>
            <Text style={styles.version}>{t('Versão')} 1.0.4 • Build 2024.1</Text>
-           <TouchableOpacity 
-             style={{ marginTop: 10 }}
-             onPress={() => router.push('/politica-privacidade' as any)}
-           >
-             <Text style={styles.footerLink}>{t('Termos e Política de Privacidade')}</Text>
-           </TouchableOpacity>
+           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10 }}>
+             <TouchableOpacity onPress={() => router.push('/termos-de-uso' as any)}>
+               <Text style={styles.footerLink}>{t('Termos de Uso')}</Text>
+             </TouchableOpacity>
+             <Text style={[styles.footerLink, { opacity: 0.4 }]}>•</Text>
+             <TouchableOpacity onPress={() => router.push('/politica-privacidade' as any)}>
+               <Text style={styles.footerLink}>{t('Política de Privacidade')}</Text>
+             </TouchableOpacity>
+           </View>
         </View>
 
       </ScrollView>

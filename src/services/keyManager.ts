@@ -259,7 +259,7 @@ class KeyManager {
     for (const key of LEGACY_KEYS) {
       const data = await storeGet(key);
       if (data) {
-        console.log(`[KeyManager] Dados encontrados na chave: ${key}`);
+        if (__DEV__) console.log(`[KeyManager] Dados encontrados na chave: ${key}`);
         return data;
       }
     }
@@ -327,7 +327,7 @@ class KeyManager {
 
       const expiry = parseInt(expiryStr, 10);
       if (Date.now() > expiry) {
-        console.log('[KeyManager] Sessão expirada.');
+        if (__DEV__) console.log('[KeyManager] Sessão expirada.');
         await this.clearSession();
         return false;
       }
@@ -347,7 +347,7 @@ class KeyManager {
         expiry
       };
 
-      console.log(`[KeyManager] Sessão restaurada com sucesso. Expira em: ${new Date(expiry).toLocaleString()}`);
+      if (__DEV__) console.log(`[KeyManager] Sessão restaurada com sucesso. Expira em: ${new Date(expiry).toLocaleString()}`);
       return true;
     } catch (e) {
       // PinLockedError aqui significa que o lockout persistente está ativo —
@@ -451,7 +451,7 @@ class KeyManager {
       // Salva a chave pública de forma NÃO CRIPTOGRAFADA para acesso rápido na UI
       await storeSet(PUBLIC_ADDRESS_KEY, walletData.publicKey);
 
-      console.log(`[KeyManager] Carteira salva com sucesso (pub=${walletData.publicKey})`);
+      if (__DEV__) console.log(`[KeyManager] Carteira salva com sucesso (pub=${walletData.publicKey.substring(0, 8)}…)`);
     } catch (err) {
       console.error('[KeyManager] Erro ao salvar:', err);
       if (err instanceof Error) throw err;

@@ -49,16 +49,34 @@ function isBadRpc(url: string | undefined): boolean {
   return KNOWN_BAD_RPCS.some((bad) => url.includes(bad));
 }
 
+/**
+ * Em release builds (Play Store / Aptoide), IGNORAMOS qualquer chave Helius
+ * exposta no bundle. Mesmo que o `.env` da Vercel tenha sido configurado por
+ * engano com `EXPO_PUBLIC_HELIUS_API_KEY` ou `EXPO_PUBLIC_HELIUS_RPC_URL`, em
+ * release sempre caímos no proxy server-side (`/api/solana-rpc`), que lê a
+ * chave de `HELIUS_API_KEY` (sem prefixo público) no servidor.
+ *
+ * Isso é defesa em profundidade: o `.env.example` já avisa pra deixar vazio,
+ * mas se um dev novo copiar a chave de dev pro painel de prod, o ataque de
+ * reverse-engineering ainda assim falha em achar uma string que valha algo.
+ *
+ * Em dev (`__DEV__ === true`) mantemos o comportamento antigo pra debug local.
+ */
+const IS_PROD = typeof __DEV__ !== 'undefined' ? !__DEV__ : true;
+
 /** Endpoint RPC mainnet — proxy por padrão, override por env. */
 export function resolveMainnetRpc(): string {
   const explicit = process.env.EXPO_PUBLIC_SOLANA_RPC_MAINNET?.trim();
   if (!isBadRpc(explicit)) return explicit!;
 
-  const heliusUrl = process.env.EXPO_PUBLIC_HELIUS_RPC_URL?.trim();
-  if (!isBadRpc(heliusUrl)) return heliusUrl!;
+  // Em release, pula chaves Helius expostas — força proxy.
+  if (!IS_PROD) {
+    const heliusUrl = process.env.EXPO_PUBLIC_HELIUS_RPC_URL?.trim();
+    if (!isBadRpc(heliusUrl)) return heliusUrl!;
 
-  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
-  if (heliusKey) return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+    const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
+    if (heliusKey) return `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+  }
 
   const base = resolveProxyBase();
   if (base) return `${base}/api/solana-rpc`;
@@ -72,13 +90,20 @@ export function resolveMainnetRpc(): string {
  * WebSocket endpoint pra mainnet. Vercel functions não suportam WS, então
  * o proxy não serve aqui — usamos Helius direto SE a chave pública estiver
  * disponível no bundle. Sem chave → undefined e web3.js cai pra polling.
+ *
+ * Em release, pulamos a chave Helius pública (mesma razão de `resolveMainnetRpc`):
+ * proteção contra vazamento via reverse-engineering. Resultado: WS retorna
+ * undefined e `useRealtimeBalances` cai pra polling a cada 4s (definido em
+ * `src/config/polling.ts`). Tradeoff aceito: latência maior > chave exposta.
  */
 export function resolveMainnetWsEndpoint(): string | undefined {
   const explicitWs = process.env.EXPO_PUBLIC_SOLANA_WS_MAINNET?.trim();
   if (explicitWs) return explicitWs;
 
-  const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
-  if (heliusKey) return `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+  if (!IS_PROD) {
+    const heliusKey = process.env.EXPO_PUBLIC_HELIUS_API_KEY?.trim();
+    if (heliusKey) return `wss://mainnet.helius-rpc.com/?api-key=${heliusKey}`;
+  }
 
   return undefined;
 }

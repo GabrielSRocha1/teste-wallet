@@ -49,7 +49,7 @@ class EncryptionService {
    */
   generateKeyPair(): EncryptionKeyPair {
     const kp = nacl.box.keyPair();
-    console.log('[EncryptionService] Par de chaves X25519 gerado');
+    if (__DEV__) console.log('[EncryptionService] Par de chaves X25519 gerado');
     return { publicKey: kp.publicKey, secretKey: kp.secretKey };
   }
 
@@ -62,7 +62,7 @@ class EncryptionService {
     dappPublicKey: Uint8Array,
   ): Uint8Array {
     const sharedSecret = nacl.box.before(dappPublicKey, walletSecretKey);
-    console.log('[EncryptionService] Shared secret calculado');
+    if (__DEV__) console.log('[EncryptionService] Shared secret calculado');
     return sharedSecret;
   }
 
@@ -85,7 +85,7 @@ class EncryptionService {
       throw new Error('[EncryptionService] Falha ao criptografar payload.');
     }
 
-    console.log('[EncryptionService] Payload criptografado', {
+    if (__DEV__) console.log('[EncryptionService] Payload criptografado', {
       nonceLen: nonce.length,
       ciphertextLen: ciphertext.length,
     });
@@ -115,7 +115,7 @@ class EncryptionService {
     }
 
     const json = Buffer.from(decrypted).toString('utf-8');
-    console.log('[EncryptionService] Payload descriptografado com sucesso');
+    if (__DEV__) console.log('[EncryptionService] Payload descriptografado com sucesso');
     try {
       return JSON.parse(json);
     } catch (parseErr) {
@@ -155,7 +155,7 @@ class EncryptionService {
       '&data=', encodeURIComponent(encodeBase58(encryptedData)),
     ].join('');
 
-    console.log('[EncryptionService] URL de retorno montada:', url.slice(0, 80) + '...');
+    if (__DEV__) console.log('[EncryptionService] URL de retorno montada:', url.slice(0, 80) + '...');
     return url;
   }
 

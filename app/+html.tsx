@@ -12,7 +12,12 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Favicon e PWA Icons */}
         <link rel="icon" type="image/png" href="/wallet-favicon.png" />
         <link rel="apple-touch-icon" href="/wallet-favicon.png" />
-        
+
+        {/* PWA */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="application-name" content="Verum crypto" />
+
         {/* Meta tags para Adicionar à Tela de Início */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -22,6 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
         <ScrollViewStyleReset />
 
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
+        <script defer src="/sw-register.js" />
       </head>
       <body>{children}</body>
     </html>

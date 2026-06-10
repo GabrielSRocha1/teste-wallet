@@ -157,7 +157,7 @@ export function useSendPayment(): UseSendPaymentResult {
         }
 
         transaction.sign(keypair);
-        console.log('[useSendPayment] transação assinada localmente.');
+        if (__DEV__) console.log('[useSendPayment] transação assinada localmente.');
 
         setStatus('broadcasting');
         const result = await transactionService.broadcastSigned(transaction);
@@ -165,7 +165,7 @@ export function useSendPayment(): UseSendPaymentResult {
         if (result.status === 'confirmed') {
           setTxHash(result.hash);
           setStatus('confirmed');
-          console.log('[useSendPayment] Transação confirmada:', result.hash);
+          if (__DEV__) console.log('[useSendPayment] Transação confirmada:', result.hash);
         } else {
           throw new Error(`Transação falhou on-chain. Hash: ${result.hash || 'indisponível'}`);
         }

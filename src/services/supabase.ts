@@ -7,8 +7,10 @@ import type { Database, Row } from '../types/database.types';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-console.log('[Supabase] Configurado com URL:', supabaseUrl);
-console.log('[Supabase] Chave Anon presente:', !!supabaseAnonKey, supabaseAnonKey.substring(0, 10) + '...');
+if (__DEV__) {
+  console.log('[Supabase] Configurado com URL:', supabaseUrl);
+  console.log('[Supabase] Chave Anon presente:', !!supabaseAnonKey);
+}
 
 // Mock storage for Node/Pre-rendering environment
 const noopStorage = {

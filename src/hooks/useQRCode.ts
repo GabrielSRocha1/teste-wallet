@@ -91,7 +91,7 @@ export function useQRCode(params: UseQRCodeParams): UseQRCodeResult {
       setExpiresAt(expiry);
       setSecondsLeft(expiresInMinutes * 60);
 
-      console.log('[useQRCode] QR gerado, expira em:', expiry.toISOString());
+      if (__DEV__) console.log('[useQRCode] QR gerado, expira em:', expiry.toISOString());
     } catch (err) {
       if (genId !== generationRef.current) return;
       const e = err instanceof Error ? err : new Error(String(err));
@@ -121,7 +121,7 @@ export function useQRCode(params: UseQRCodeParams): UseQRCodeResult {
           // Expirou — regenera automaticamente
           clearInterval(countdownRef.current!);
           countdownRef.current = null;
-          console.log('[useQRCode] QR expirado — regenerando...');
+          if (__DEV__) console.log('[useQRCode] QR expirado — regenerando...');
           generate();
           return 0;
         }
