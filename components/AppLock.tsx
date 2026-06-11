@@ -3,6 +3,13 @@ import { AppState, Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Al
 import * as LocalAuthentication from 'expo-local-authentication';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { requiresAuthentication, updateLastAuthTime } from '@/constants/biometrics-storage';
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  getStoredCredentialId,
+  registerWebAuthnCredential,
+  authenticateWithWebAuthn,
+} from '@/constants/webauthn-storage';
 import { V, F } from '@/constants/theme';
 import { useSettings } from '@/constants/SettingsContext';
 import PasswordModal from '@/components/PasswordModal';
@@ -12,6 +19,8 @@ export default function AppLock() {
   const [isLocked, setIsLocked] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [webBiometricAvailable, setWebBiometricAvailable] = useState(false);
+  const [webHasCredential, setWebHasCredential] = useState(false);
   const appState = useRef(AppState.currentState);
   const { t } = useSettings();
 
@@ -38,6 +47,14 @@ export default function AppLock() {
 
     handleLockCheck();
 
+    if (Platform.OS === 'web') {
+      (async () => {
+        const supported = isWebAuthnSupported() && await isPlatformAuthenticatorAvailable();
+        setWebBiometricAvailable(supported);
+        setWebHasCredential(!!getStoredCredentialId());
+      })();
+    }
+
     return () => {
       subscription.remove();
     };
@@ -45,6 +62,21 @@ export default function AppLock() {
 
   const triggerBiometrics = async () => {
     if (Platform.OS === 'web') {
+      const supported = isWebAuthnSupported() && await isPlatformAuthenticatorAvailable();
+      setWebBiometricAvailable(supported);
+
+      if (supported && getStoredCredentialId()) {
+        try {
+          const ok = await authenticateWithWebAuthn();
+          if (ok) {
+            setIsLocked(false);
+            await updateLastAuthTime();
+            return;
+          }
+        } catch {
+          // usuário cancelou ou falhou — cai pro PIN
+        }
+      }
       setIsPasswordModalVisible(true);
       return;
     }
@@ -68,6 +100,18 @@ export default function AppLock() {
     }
   };
 
+  const tryRegisterWebAuthn = async () => {
+    if (Platform.OS !== 'web') return;
+    if (!isWebAuthnSupported() || !(await isPlatformAuthenticatorAvailable())) return;
+    if (getStoredCredentialId()) return;
+    try {
+      const ok = await registerWebAuthnCredential('verum-wallet-user');
+      if (ok) setWebHasCredential(true);
+    } catch {
+      // ignorar — usuário pode cadastrar depois nas configurações
+    }
+  };
+
   const handleConfirmPassword = async (pin: string) => {
     setPasswordLoading(true);
     try {
@@ -75,6 +119,7 @@ export default function AppLock() {
       setIsLocked(false);
       setIsPasswordModalVisible(false);
       await updateLastAuthTime();
+      await tryRegisterWebAuthn();
     } catch (e) {
       Alert.alert(t('Erro'), t('Senha incorreta.'));
     } finally {
@@ -84,6 +129,8 @@ export default function AppLock() {
 
   if (!isLocked) return null;
 
+  const showBiometricButton = Platform.OS !== 'web' || (webBiometricAvailable && webHasCredential);
+
   return (
     <Modal visible={true} animationType="fade" transparent={false}>
       <View style={styles.container}>
@@ -92,13 +139,24 @@ export default function AppLock() {
         </View>
         <Text style={styles.title}>{t('CARTEIRA BLOQUEADA')}</Text>
         <Text style={styles.subtitle}>{t('Autentique-se para continuar acessando seus ativos.')}</Text>
-        
-        <TouchableOpacity style={styles.button} onPress={triggerBiometrics}>
-          <Text style={styles.buttonText}>{t('DESBLOQUEAR')}</Text>
+
+        {showBiometricButton && (
+          <TouchableOpacity style={styles.button} onPress={triggerBiometrics}>
+            <Text style={styles.buttonText}>{t('USAR BIOMETRIA')}</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.pinButton, !showBiometricButton && styles.pinButtonPrimary]}
+          onPress={() => setIsPasswordModalVisible(true)}
+        >
+          <Text style={[styles.pinButtonText, !showBiometricButton && styles.pinButtonTextPrimary]}>
+            {t('USAR PIN')}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <PasswordModal 
+      <PasswordModal
         isVisible={isPasswordModalVisible}
         onClose={() => setIsPasswordModalVisible(false)}
         loading={passwordLoading}
@@ -153,7 +211,7 @@ const styles = StyleSheet.create({
     backgroundColor: V.gold,
     paddingHorizontal: 40,
     paddingVertical: 18,
-    borderRadius: V.r8,
+    borderRadius: 8,
     width: '100%',
     alignItems: 'center',
   },
@@ -162,5 +220,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: F.bold,
     letterSpacing: 1,
+  },
+  pinButton: {
+    marginTop: 16,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.5)',
+    backgroundColor: 'transparent',
+  },
+  pinButtonPrimary: {
+    backgroundColor: V.gold,
+    borderColor: V.gold,
+  },
+  pinButtonText: {
+    color: V.gold,
+    fontSize: 15,
+    fontFamily: F.bold,
+    letterSpacing: 1,
+  },
+  pinButtonTextPrimary: {
+    color: V.bg,
   },
 });
