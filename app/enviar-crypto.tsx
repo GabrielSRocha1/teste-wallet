@@ -491,7 +491,12 @@ export default function EnviarCryptoScreen() {
       setIsResultModalVisible(true);
     } catch (err: any) {
       console.error('[executeEnvio]', err);
-      Alert.alert(t('Erro no Envio'), err.message || t('Falha ao processar a transação.'));
+      // Alert.alert do React Native não renderiza no PWA/web — feedback de
+      // erro precisa ir pelo modal de resultado (que já trata txResultError
+      // mostrando ícone vermelho + título "FALHA" + a mensagem).
+      setLocalTxHash(null);
+      setTxResultError(err.message || t('Falha ao processar a transação.'));
+      setIsResultModalVisible(true);
     } finally {
       setIsLoading(false);
       setLoadingStep('');

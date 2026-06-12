@@ -332,6 +332,9 @@ const BACKOFF_MS = 1_000;
  *   - HTTP 429 / Too Many Requests (rate-limit)
  *   - HTTP 403 / Access forbidden (key expirada, tier estourado no Helius)
  *   - HTTP 401 (auth do RPC inválida)
+ *   - JSON-RPC -32601 / "Method not found" / "not allowed via proxy"
+ *     (proxy interno bloqueando o método — ex: sendTransaction fora da
+ *     allowlist). RPC público não tem allowlist e pode aceitar.
  *
  * Erros como InsufficientFunds, InvalidTransaction, Custom error on-chain
  * NÃO devem cair em fallback — mudar de RPC não muda o erro semântico.
@@ -347,7 +350,10 @@ export function isRateOrAuthFailure(err: unknown, message?: string): boolean {
     msg.includes('Too Many Requests') ||
     msg.includes('403') ||
     msg.includes('Access forbidden') ||
-    msg.includes('401')
+    msg.includes('401') ||
+    msg.includes('-32601') ||
+    msg.includes('not allowed via proxy') ||
+    msg.includes('Method not found')
   );
 }
 

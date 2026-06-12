@@ -51,6 +51,18 @@ describe('isRateOrAuthFailure — (F8) decisão de fallback do broadcast', () =>
     expect(isRateOrAuthFailure(new Error('HTTP 401 Unauthorized'))).toBe(true);
   });
 
+  it('"-32601" do proxy → true (método bloqueado por allowlist, RPC público pode aceitar)', () => {
+    expect(isRateOrAuthFailure(new Error('400 : {"jsonrpc":"2.0","error":{"code":-32601,"message":"x"}}'))).toBe(true);
+  });
+
+  it('"not allowed via proxy" textual → true (mesmo caso, mensagem humana)', () => {
+    expect(isRateOrAuthFailure(new Error("Method 'sendTransaction' not allowed via proxy"))).toBe(true);
+  });
+
+  it('"Method not found" JSON-RPC genérico → true', () => {
+    expect(isRateOrAuthFailure(new Error('Method not found'))).toBe(true);
+  });
+
   it('InsufficientFunds → FALSE (mudar de RPC não muda o erro semântico)', () => {
     expect(isRateOrAuthFailure(new Error('Custom program error: InsufficientFunds'))).toBe(false);
   });

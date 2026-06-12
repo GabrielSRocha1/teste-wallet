@@ -52,8 +52,10 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean) as string[];
 
 // ─── Method allowlist ────────────────────────────────────────────────────────
-// Apenas métodos de LEITURA do Solana RPC. Nada de sendTransaction (esse vai
-// direto do client com a tx assinada — não há benefício em proxiar).
+// Métodos de LEITURA + sendTransaction. No PWA (same-origin), o cliente não
+// tem caminho direto pro Helius/RPC público sem CORS — então o broadcast da
+// TX assinada também precisa passar pelo proxy. A chave Helius continua
+// server-side; o proxy só repassa bytes já assinados pelo usuário.
 const ALLOWED_METHODS = new Set<string>([
   'getBalance',
   'getAccountInfo',
@@ -78,6 +80,7 @@ const ALLOWED_METHODS = new Set<string>([
   'getFeeForMessage',
   'getRecentPrioritizationFees',
   'simulateTransaction',
+  'sendTransaction',
   'isBlockhashValid',
   'getVersion',
   'getHealth',
