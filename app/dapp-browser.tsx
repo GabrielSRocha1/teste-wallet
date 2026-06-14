@@ -591,7 +591,26 @@ export default function DAppBrowserScreen() {
     let keypair = keyManager.getSessionKeypair();
 
     if (!keypair && !forcedPk) {
-      if (hasWallet) {
+      // Sem carteira instalada → rejeita usando o tipo correto da request.
+      if (!hasWallet) {
+        const rejectType = ({
+          connect:     VERUM_MSG.CONNECT_REJECTED,
+          signTx:      VERUM_MSG.SIGN_TX_REJECTED,
+          signAllTx:   VERUM_MSG.SIGN_ALL_REJECTED,
+          signMessage: VERUM_MSG.SIGN_MSG_REJECTED,
+        }[pendingReq.type ?? 'connect']) || VERUM_MSG.CONNECT_REJECTED;
+        sendResponse({
+          type: rejectType,
+          id: pendingReq.id,
+          reason: 'WALLET_NOT_FOUND',
+        }, pendingReq.origin);
+        setPendingReq(null);
+        return;
+      }
+
+      // Connect sem sessão ativa: responde com o endereço armazenado — o dApp
+      // só precisa do publicKey e o session/PIN só é necessário para assinar.
+      if (pendingReq.type === 'connect') {
         sendResponse({
           type: VERUM_MSG.CONNECT_RESPONSE,
           id: pendingReq.id,
@@ -599,14 +618,13 @@ export default function DAppBrowserScreen() {
           accounts: [{ address: publicKey, publicKey: publicKey }],
         }, pendingReq.origin);
         setPendingReq(null);
-      } else {
-        sendResponse({
-          type: VERUM_MSG.CONNECT_REJECTED,
-          id: pendingReq.id,
-          error: 'WALLET_NOT_FOUND',
-        });
-        setPendingReq(null);
+        return;
       }
+
+      // Sign sem sessão ativa: precisa do keypair real → abre o modal de PIN.
+      // O pendingReq é preservado; após o unlock, handleUnlock chama
+      // handleApprove de novo e o switch abaixo executa a assinatura.
+      setUnlockVisible(true);
       return;
     }
 
