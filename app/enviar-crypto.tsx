@@ -243,10 +243,48 @@ export default function EnviarCryptoScreen() {
   };
 
   const handleBarCodeScanned = (data: string) => {
-    let address = data;
-    if (data.startsWith('solana:')) address = data.replace('solana:', '').split('?')[0];
-    setWalletAddress(address);
     setIsScannerVisible(false);
+
+    // Solana Pay URI: solana:<recipient>?amount=<n>&spl-token=<mint>&...
+    // https://docs.solanapay.com/spec
+    if (!data.startsWith('solana:')) {
+      setWalletAddress(data);
+      return;
+    }
+
+    const withoutScheme = data.slice('solana:'.length);
+    const [address, queryString] = withoutScheme.split('?');
+    setWalletAddress(address);
+
+    if (!queryString) return;
+
+    const params = new URLSearchParams(queryString);
+    const splMint = params.get('spl-token');
+    const qrAmount = params.get('amount');
+
+    // Identifica a moeda solicitada
+    if (splMint) {
+      const matched = availableTokens.find(
+        (tk) => tk.mint && tk.mint.toLowerCase() === splMint.toLowerCase()
+      );
+      if (matched) {
+        setCrypto(matched.symbol);
+      } else {
+        Alert.alert(
+          t('Token não disponível'),
+          t('O QR Code pede um token que você não possui ou que não está habilitado nesta carteira.')
+        );
+      }
+    } else {
+      // Sem spl-token → pagamento em SOL nativo
+      setCrypto('SOL');
+    }
+
+    // Preenche a quantidade, se vier no QR
+    if (qrAmount && !isNaN(parseFloat(qrAmount))) {
+      setActiveInput('amount');
+      setAmount(qrAmount);
+    }
   };
 
   const startScanner = () => {
