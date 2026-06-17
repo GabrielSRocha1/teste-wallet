@@ -176,24 +176,36 @@ export default function EnviarCryptoScreen() {
           USDC: 'USD Coin'
         };
 
+        // Tokens que aparecem sempre, mesmo sem saldo (igual ao SOL).
+        const ALWAYS_VISIBLE = new Set(['USDC']);
+
+        // Garante que tokens sempre-visíveis apareçam mesmo se a API de saldos
+        // não devolveu a chave (acontece quando saldo é zero em algumas redes).
+        for (const sym of ALWAYS_VISIBLE) {
+          if (!(sym in mergedBalances) && activeMints[sym]) {
+            mergedBalances[sym] = 0;
+          }
+        }
+
         for (const [sym, balance] of Object.entries(mergedBalances)) {
           if (sym === 'SOL') continue;
-          
+
           const isSelected = sym.toUpperCase() === cryptoParamStr;
           const hasBalance = balance > 0;
+          const alwaysVisible = ALWAYS_VISIBLE.has(sym);
 
-          if (hasBalance || isSelected) {
+          if (hasBalance || isSelected || alwaysVisible) {
             const name = KNOWN_DATA[sym] || sym;
             const mint = activeMints[sym];
             const decimals = sym === 'USDT' || sym === 'USDC' ? 6 : 9;
-            
+
             if (!tokens.find(t => t.symbol === sym)) {
-               tokens.push({ 
-                 symbol: sym, 
-                 name, 
-                 label: `${sym} - ${name}`, 
-                 balance, 
-                 mint, 
+               tokens.push({
+                 symbol: sym,
+                 name,
+                 label: `${sym} - ${name}`,
+                 balance,
+                 mint,
                  decimals
                });
             }
