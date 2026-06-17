@@ -45,6 +45,8 @@ export default function QRScannerModal({ visible, onClose, onScanned, label }: P
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [ready, setReady] = useState(false);
+  // Alternar autofoco força o Android a refocar continuamente
+  const [autofocus, setAutofocus] = useState<'on' | 'off'>('on');
   const scannedRef = useRef(false); // evita múltiplas callbacks com useRef (sem re-render)
 
   // Quando o modal abre, garante permissão e reseta o flag de leitura
@@ -76,6 +78,17 @@ export default function QRScannerModal({ visible, onClose, onScanned, label }: P
     });
   }, [visible, permission?.granted]);
 
+  // Workaround para Android: alterna autofocus periodicamente para forçar refoco.
+  // Sem isso o expo-camera trava o foco no primeiro frame e a imagem fica borrada
+  // assim que o usuário aproxima o QR Code da câmera.
+  useEffect(() => {
+    if (!ready || !visible || Platform.OS !== 'android') return;
+    const interval = setInterval(() => {
+      setAutofocus((prev) => (prev === 'on' ? 'off' : 'on'));
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [ready, visible]);
+
   const handleBarCodeScanned = useCallback(({ data }: { data: string }) => {
     if (scannedRef.current) return; // já leu — ignora duplicatas
     scannedRef.current = true;
@@ -97,6 +110,7 @@ export default function QRScannerModal({ visible, onClose, onScanned, label }: P
           <CameraView
             style={StyleSheet.absoluteFillObject}
             facing="back"
+            autofocus={autofocus}
             onBarcodeScanned={handleBarCodeScanned}
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           />
