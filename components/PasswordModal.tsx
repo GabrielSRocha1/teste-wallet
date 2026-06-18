@@ -39,22 +39,20 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
     wasLoading.current = !!loading;
   }, [loading]);
 
-  // Auto-confirma quando o PIN atinge o comprimento máximo
-  // Pequeno delay para o último dot ser pintado antes da confirmação,
-  // dando feedback visual de que a senha foi digitada por completo.
-  useEffect(() => {
-    if (pin.length === MAX_PIN && !loading) {
-      const timer = setTimeout(() => onConfirm(pin), 180);
-      return () => clearTimeout(timer);
-    }
-  }, [pin]);
-
   const handleClose = () => {
     if (!loading) {
       setPin('');
       onClose();
     }
   };
+
+  const handleConfirm = () => {
+    if (pin.length === MAX_PIN && !loading) {
+      onConfirm(pin);
+    }
+  };
+
+  const isConfirmDisabled = pin.length !== MAX_PIN || loading;
 
   return (
     <Modal visible={isVisible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -87,11 +85,14 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
             )}
 
             <TouchableOpacity
-              style={[styles.cancelBtn, loading && { opacity: 0.5 }]}
-              onPress={handleClose}
-              disabled={loading}
+              style={[styles.confirmBtn, isConfirmDisabled && styles.confirmBtnDisabled]}
+              onPress={handleConfirm}
+              disabled={isConfirmDisabled}
+              activeOpacity={0.8}
             >
-              <Text style={styles.cancelText}>CANCELAR</Text>
+              <Text style={[styles.confirmText, isConfirmDisabled && styles.confirmTextDisabled]}>
+                CONFIRMAR
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -111,6 +112,8 @@ const styles = StyleSheet.create({
   modalDescription: { fontSize: 13, fontFamily: F.body, color: V.muted, marginBottom: 24, lineHeight: 20, textAlign: 'center' },
   errorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 4 },
   errorText: { fontSize: 12, fontFamily: F.semi, color: V.danger, flex: 1 },
-  cancelBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 32, borderRadius: V.r8, borderWidth: 1, borderColor: V.border },
-  cancelText: { color: V.muted, fontSize: 12, fontFamily: F.bold, letterSpacing: 1 },
+  confirmBtn: { marginTop: 20, paddingVertical: 14, paddingHorizontal: 48, borderRadius: 8, backgroundColor: V.gold, borderWidth: 1, borderColor: V.gold, minWidth: 200, alignItems: 'center' },
+  confirmBtnDisabled: { backgroundColor: 'rgba(201,168,76,0.2)', borderColor: 'rgba(201,168,76,0.3)' },
+  confirmText: { color: V.bg, fontSize: 13, fontFamily: F.bold, letterSpacing: 1.5 },
+  confirmTextDisabled: { color: 'rgba(201,168,76,0.6)' },
 });
