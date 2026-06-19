@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch, Animated, Linking, Platform, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch, Animated, Linking, Platform, Modal, TextInput, ActivityIndicator, Image } from 'react-native';
 import { supabase } from '@/src/services/supabase';
-import { getBiometricsEnabled, setBiometricsEnabled as saveBiometricsEnabled } from '@/constants/biometrics-storage';
+import { getBiometricsEnabled, setBiometricsEnabled as saveBiometricsEnabled, getAuthFrequency, setAuthFrequency as saveAuthFrequency } from '@/constants/biometrics-storage';
 import { getNotificationsEnabled, setNotificationsEnabled as saveNotificationsEnabled } from '@/constants/notifications-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -20,6 +20,27 @@ import transactionService from '@/src/services/transactionService';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/** Opções de frequência da autenticação biométrica.
+ *  Mantidas em sync com os intervalos em biometrics-storage.ts:requiresAuthentication. */
+const AUTH_FREQUENCIES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'always',   label: 'Cada vez que abrir o app' },
+  { id: '1min',     label: 'Após 1 minuto' },
+  { id: '5min',     label: 'Após 5 minutos' },
+  { id: '10min',    label: 'Após 10 minutos' },
+  { id: '15min',    label: 'Após 15 minutos' },
+  { id: '30min',    label: 'Após 30 minutos' },
+  { id: '1hour',    label: 'Após 1 hora' },
+  { id: '4hours',   label: 'Após 4 horas' },
+  { id: '8hours',   label: 'Após 8 horas' },
+  { id: '24hours',  label: 'Após 24 horas' },
+  { id: 'never',    label: 'Nunca' },
+];
+
+function getAuthFrequencyLabel(id: string, t: (k: string) => string): string {
+  const found = AUTH_FREQUENCIES.find(f => f.id === id) ?? AUTH_FREQUENCIES[0];
+  return t(found.label);
+}
+
 export default function ConfiguracoesScreen() {
   const insets = useSafeAreaInsets();
   const [isSidebarVisible, setSidebarVisible] = useState(false);
@@ -34,6 +55,8 @@ export default function ConfiguracoesScreen() {
   const [isUserModalVisible, setIsUserModalVisible] = useState(false);
   const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
   const [isCurrencyModalVisible, setIsCurrencyModalVisible] = useState(false);
+  const [isFrequencyModalVisible, setIsFrequencyModalVisible] = useState(false);
+  const [authFrequency, setAuthFrequencyState] = useState<string>('always');
   const [editingField, setEditingField] = useState<'email' | 'telefone' | 'walletName' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -43,6 +66,7 @@ export default function ConfiguracoesScreen() {
     const loadSettings = async () => {
       setBiometricsEnabled(await getBiometricsEnabled());
       setNotificationsEnabled(await getNotificationsEnabled());
+      setAuthFrequencyState(await getAuthFrequency());
       
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -167,7 +191,7 @@ export default function ConfiguracoesScreen() {
                  activeOpacity={0.8}
                >
                  <View style={styles.langDropdownLeft}>
-                   <Text style={styles.langDropdownFlag}>{getLanguageOption(language).flag}</Text>
+                   <Image source={getLanguageOption(language).flagAsset} style={styles.langDropdownFlag} />
                    <Text style={styles.langDropdownText}>{getLanguageOption(language).nativeName}</Text>
                  </View>
                  <Feather name="chevron-down" size={18} color={V.gold} />
@@ -187,7 +211,7 @@ export default function ConfiguracoesScreen() {
                  activeOpacity={0.8}
                >
                  <View style={styles.langDropdownLeft}>
-                   <Text style={styles.langDropdownFlag}>{getCurrencyOption(currency).flag}</Text>
+                   <Image source={getCurrencyOption(currency).flagAsset} style={styles.langDropdownFlag} />
                    <Text style={styles.langDropdownText}>
                      {getCurrencyOption(currency).code} — {getCurrencyOption(currency).nativeName}
                    </Text>
@@ -256,20 +280,6 @@ export default function ConfiguracoesScreen() {
               <Feather name="chevron-right" size={20} color={V.muted} />
             </TouchableOpacity>
 
-            <View style={styles.divider} />
-
-            <TouchableOpacity style={styles.row} onPress={() => router.push('/solicitar-autenticacao' as any)}>
-              <View style={styles.rowLeft}>
-                <View style={[styles.iconBox, { borderColor: V.success + '40' }]}>
-                  <Feather name="shield" size={18} color={V.success} />
-                </View>
-                <View>
-                  <Text style={styles.rowText}>{t('Autenticação Biométrica')}</Text>
-                  <Text style={styles.rowSubtext}>{t('Configurar FaceID ou Digital')}</Text>
-                </View>
-              </View>
-              <Feather name="chevron-right" size={20} color={V.muted} />
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -334,6 +344,28 @@ export default function ConfiguracoesScreen() {
                 thumbColor={biometricsEnabled ? '#C9A84C' : '#999'}
               />
             </View>
+
+            {biometricsEnabled && (
+              <>
+                <View style={styles.divider} />
+                <TouchableOpacity
+                  style={styles.row}
+                  onPress={() => setIsFrequencyModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: 'rgba(201,168,76,0.1)' }]}>
+                      <Feather name="clock" size={18} color={V.gold} />
+                    </View>
+                    <View>
+                      <Text style={styles.rowText}>{t('Frequência')}</Text>
+                      <Text style={styles.rowSubtext}>{getAuthFrequencyLabel(authFrequency, t)}</Text>
+                    </View>
+                  </View>
+                  <Feather name="chevron-right" size={20} color={V.muted} />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -465,7 +497,7 @@ export default function ConfiguracoesScreen() {
                     onPress={() => handleLanguageChange(lang.code, lang.nativeName)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.langItemFlag}>{lang.flag}</Text>
+                    <Image source={lang.flagAsset} style={styles.langItemFlag} />
                     <View style={styles.langItemTexts}>
                       <Text style={[styles.langItemName, isActive && styles.langItemNameActive]}>
                         {lang.nativeName}
@@ -505,7 +537,7 @@ export default function ConfiguracoesScreen() {
                     onPress={() => handleCurrencyChange(cur.code, cur.nativeName)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.langItemFlag}>{cur.flag}</Text>
+                    <Image source={cur.flagAsset} style={styles.langItemFlag} />
                     <View style={styles.langItemTexts}>
                       <Text style={[styles.langItemName, isActive && styles.langItemNameActive]}>
                         {cur.code} — {cur.nativeName}
@@ -517,6 +549,55 @@ export default function ConfiguracoesScreen() {
                 );
               })}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isFrequencyModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsFrequencyModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.langModalContent}>
+            <View style={styles.langModalHeader}>
+              <Text style={styles.modalTitle}>{t('Frequência').toUpperCase()}</Text>
+              <TouchableOpacity onPress={() => setIsFrequencyModalVisible(false)}>
+                <Feather name="x" size={22} color={V.gold} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.langList} showsVerticalScrollIndicator={false}>
+              {AUTH_FREQUENCIES.map(opt => {
+                const isActive = authFrequency === opt.id;
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[styles.langItem, isActive && styles.langItemActive]}
+                    onPress={async () => {
+                      setAuthFrequencyState(opt.id);
+                      await saveAuthFrequency(opt.id);
+                      setIsFrequencyModalVisible(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.langItemTexts}>
+                      <Text style={[styles.langItemName, isActive && styles.langItemNameActive]}>
+                        {t(opt.label)}
+                      </Text>
+                    </View>
+                    {isActive && <Feather name="check" size={18} color={V.gold} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.freqInfoBox}>
+              <Feather name="shield" size={16} color={V.gold} />
+              <Text style={styles.freqInfoText}>
+                {t('Recomendamos o uso da autenticação sempre que o aplicativo for aberto para garantir a máxima segurança dos seus ativos no ecossistema Verun Crypto.')}
+              </Text>
+            </View>
           </View>
         </View>
       </Modal>
@@ -672,7 +753,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   langDropdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  langDropdownFlag: { fontSize: 22 },
+  langDropdownFlag: { width: 24, height: 18, borderRadius: 3, resizeMode: 'cover' },
   langDropdownText: { fontSize: 14, fontFamily: F.semi, color: V.text },
 
   langModalContent: {
@@ -695,6 +776,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   langList: { flexGrow: 0 },
+  freqInfoBox: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 14,
+    marginTop: 16,
+    backgroundColor: 'rgba(201,168,76,0.05)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.2)',
+    alignItems: 'center',
+  },
+  freqInfoText: {
+    flex: 1,
+    fontSize: 11,
+    color: V.muted,
+    lineHeight: 16,
+    fontFamily: F.body,
+  },
   langItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -710,7 +809,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(201,168,76,0.1)',
     borderColor: 'rgba(201,168,76,0.5)',
   },
-  langItemFlag: { fontSize: 26 },
+  langItemFlag: { width: 32, height: 24, borderRadius: 4, resizeMode: 'cover' },
   langItemTexts: { flex: 1 },
   langItemName: { fontSize: 15, fontFamily: F.semi, color: V.text },
   langItemNameActive: { color: V.gold },
