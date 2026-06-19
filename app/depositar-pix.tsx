@@ -212,7 +212,7 @@ export default function DepositarPixScreen() {
 
       if (!pixContent && !remoteBase64) {
         console.error('[PIX] resposta sem qrcode', data);
-        throw new Error('QR Code não retornado');
+        throw new Error(t('QR Code não retornado'));
       }
 
       let finalBase64 = remoteBase64;
@@ -337,7 +337,7 @@ export default function DepositarPixScreen() {
         {!kycChecked && (
           <View style={[styles.card, { alignItems: 'center', paddingVertical: 40 }]}>
             <ActivityIndicator size="large" color={V.gold} />
-            <Text style={[styles.label, { marginTop: 16 }]}>VERIFICANDO CADASTRO...</Text>
+            <Text style={[styles.label, { marginTop: 16 }]}>{t('VERIFICANDO CADASTRO...')}</Text>
           </View>
         )}
 
@@ -346,23 +346,23 @@ export default function DepositarPixScreen() {
           <View style={styles.card}>
             <View style={styles.kycBadge}>
               <Feather name="shield" size={13} color={V.gold} />
-              <Text style={styles.kycBadgeText}>VERIFICAÇÃO NECESSÁRIA</Text>
+              <Text style={styles.kycBadgeText}>{t('VERIFICAÇÃO NECESSÁRIA')}</Text>
             </View>
 
             <View style={styles.kycIconWrap}>
               <Feather name="user-check" size={48} color={V.gold} />
             </View>
 
-            <Text style={styles.kycTitle}>Identidade não verificada</Text>
+            <Text style={styles.kycTitle}>{t('Identidade não verificada')}</Text>
             <Text style={styles.kycSubtitle}>
-              Para comprar crypto via PIX ou Transferência Bancária, você precisa verificar sua identidade. O processo leva menos de 3 minutos.
+              {t('Para comprar crypto via PIX ou Transferência Bancária, você precisa verificar sua identidade. O processo leva menos de 3 minutos.')}
             </Text>
 
             <View style={styles.kycSteps}>
               {[
-                { icon: 'file-text', text: 'Preencha seus dados pessoais' },
-                { icon: 'camera', text: 'Foto do documento de identidade' },
-                { icon: 'check-circle', text: 'Verificação aprovada — compre crypto' },
+                { icon: 'file-text',    text: t('Preencha seus dados pessoais') },
+                { icon: 'camera',       text: t('Foto do documento de identidade') },
+                { icon: 'check-circle', text: t('Verificação aprovada — compre crypto') },
               ].map((step, i) => (
                 <View key={i} style={styles.kycStep}>
                   <View style={styles.kycStepIcon}>
@@ -375,13 +375,13 @@ export default function DepositarPixScreen() {
 
             <TouchableOpacity style={styles.mainBtn} onPress={() => router.push('/kyc' as any)}>
               <Feather name="shield" size={18} color={V.bg} />
-              <Text style={styles.mainBtnT}>VERIFICAR IDENTIDADE</Text>
+              <Text style={styles.mainBtnT}>{t('VERIFICAR IDENTIDADE')}</Text>
             </TouchableOpacity>
 
             <View style={styles.kycPrivacy}>
               <Feather name="lock" size={12} color={V.muted} />
               <Text style={styles.kycPrivacyText}>
-                Seus dados são criptografados e usados exclusivamente para verificação de identidade (KYC).
+                {t('Seus dados são criptografados e usados exclusivamente para verificação de identidade (KYC).')}
               </Text>
             </View>
           </View>

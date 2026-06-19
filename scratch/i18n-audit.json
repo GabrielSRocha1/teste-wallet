@@ -1,0 +1,131 @@
+{
+  "totalsPerLang": {
+    "en": 858,
+    "es": 858,
+    "pt": 858,
+    "fr": 860,
+    "de": 860,
+    "it": 860,
+    "zh": 860,
+    "ja": 860,
+    "ko": 860,
+    "ru": 860,
+    "ar": 860,
+    "hi": 860,
+    "tr": 860,
+    "nl": 860,
+    "pl": 860
+  },
+  "ptBase": 858,
+  "usedKeysCount": 676,
+  "usedKeysMissingInPt": [
+    "Tem certeza que deseja desconectar {count} dApp(s)?\\n\\nTodos perderão acesso à sua carteira."
+  ],
+  "perLang": {
+    "en": {
+      "totalKeys": 858,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "es": {
+      "totalKeys": 858,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "pt": {
+      "totalKeys": 858,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "fr": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "de": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "it": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "zh": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "ja": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "ko": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "ru": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "ar": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "hi": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "tr": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "nl": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    },
+    "pl": {
+      "totalKeys": 860,
+      "missingPtKeysCount": 0,
+      "missingPtKeysSample": [],
+      "usedKeysMissingCount": 0,
+      "usedKeysMissingSample": []
+    }
+  }
+}

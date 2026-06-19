@@ -95,10 +95,10 @@ export default function ExportarChavePrivadaScreen() {
         </View>
 
         <View style={styles.titleBox}>
-          <Text style={styles.title}>CHAVE PRIVADA SOLANA</Text>
+          <Text style={styles.title}>{t('CHAVE PRIVADA SOLANA')}</Text>
           <View style={styles.goldLine} />
           <Text style={styles.description}>
-            Sua chave privada dá acesso total à sua carteira. <Text style={{ fontFamily: F.bold }}>NUNCA</Text> a compartilhe. Quem possuir esta chave terá controle total sobre seus ativos.
+            {t('Sua chave privada dá acesso total à sua carteira.')} <Text style={{ fontFamily: F.bold }}>{t('NUNCA')}</Text> {t('a compartilhe. Quem possuir esta chave terá controle total sobre seus ativos.')}
           </Text>
         </View>
 
@@ -108,7 +108,7 @@ export default function ExportarChavePrivadaScreen() {
             <TouchableOpacity style={styles.copyBtn} onPress={copyToClipboard}>
               <Feather name={copied ? "check" : "copy"} size={18} color={copied ? V.success : V.gold} />
               <Text style={[styles.copyBtnText, copied && { color: V.success }]}>
-                {copied ? "COPIADO" : "COPIAR CHAVE"}
+                {copied ? t('COPIADO') : t('COPIAR CHAVE')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -117,7 +117,7 @@ export default function ExportarChavePrivadaScreen() {
             {loading ? <ActivityIndicator color={V.bg} /> : (
               <>
                 <Feather name="eye" size={20} color={V.bg} />
-                <Text style={styles.revealBtnText}>REVELAR CHAVE PRIVADA</Text>
+                <Text style={styles.revealBtnText}>{t('REVELAR CHAVE PRIVADA')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -125,15 +125,15 @@ export default function ExportarChavePrivadaScreen() {
 
         <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/(tabs)/' as any)}>
           <Feather name="home" size={18} color={V.gold} />
-          <Text style={styles.homeBtnText}>VOLTAR PARA HOME</Text>
+          <Text style={styles.homeBtnText}>{t('VOLTAR PARA HOME')}</Text>
         </TouchableOpacity>
 
         <View style={styles.warningCard}>
           <Feather name="alert-triangle" size={20} color={V.danger} />
           <View style={{flex: 1}}>
-            <Text style={styles.warningT}>SEGURANÇA CRÍTICA</Text>
+            <Text style={styles.warningT}>{t('SEGURANÇA CRÍTICA')}</Text>
             <Text style={styles.warningText}>
-                Não tire capturas de tela. Prefira anotar em local físico seguro e offline.
+                {t('Não tire capturas de tela. Prefira anotar em local físico seguro e offline.')}
             </Text>
           </View>
         </View>

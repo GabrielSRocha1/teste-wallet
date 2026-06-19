@@ -278,7 +278,7 @@ export default function CambioScreen() {
       const combined = jupiterErr
         ? `Jupiter: ${jupiterErr} | Raydium: ${raydiumErr}`
         : raydiumErr;
-      setQuoteError(combined || 'Sem cotação disponível');
+      setQuoteError(combined || t('Sem cotação disponível'));
       setQuote(null);
     } finally {
       setIsFetchingQuote(false);
@@ -387,7 +387,7 @@ export default function CambioScreen() {
         );
 
         if (!swapData?.swapTransaction) {
-          throw new Error('Jupiter não retornou swapTransaction.');
+          throw new Error(t('Jupiter não retornou swapTransaction.'));
         }
 
         setLoadingStep(t('Assinando transação...'));
@@ -429,8 +429,11 @@ export default function CambioScreen() {
 
         await notificationService.pushNotification({
           type: 'swap',
-          title: 'Swap realizado',
-          description: `Você trocou ${amt} ${fromToken.symbol} por ${outUi.toFixed(outDecimals > 6 ? 6 : 2)} ${toToken.symbol}.`,
+          title: t('Swap realizado'),
+          description: t('Você trocou {amount} {from} por {out} {to}.', {
+            amount: String(amt), from: fromToken.symbol,
+            out: outUi.toFixed(outDecimals > 6 ? 6 : 2), to: toToken.symbol,
+          }),
           amount: `+${outUi.toFixed(outDecimals > 6 ? 6 : 2)}`,
           currency: toToken.symbol,
           data: { hash: result.hash, via: 'jupiter', from: fromToken.symbol, to: toToken.symbol },
@@ -494,8 +497,11 @@ export default function CambioScreen() {
         const netOutUi = Math.max(0, outUi - feeUi);
         await notificationService.pushNotification({
           type: 'swap',
-          title: 'Swap realizado',
-          description: `Você trocou ${amt} ${fromToken.symbol} por ${netOutUi.toFixed(outDecimals > 6 ? 6 : 2)} ${toToken.symbol}.`,
+          title: t('Swap realizado'),
+          description: t('Você trocou {amount} {from} por {out} {to}.', {
+            amount: String(amt), from: fromToken.symbol,
+            out: netOutUi.toFixed(outDecimals > 6 ? 6 : 2), to: toToken.symbol,
+          }),
           amount: `+${netOutUi.toFixed(outDecimals > 6 ? 6 : 2)}`,
           currency: toToken.symbol,
           data: { hash: rayResult.signature, via: 'raydium', from: fromToken.symbol, to: toToken.symbol },
@@ -545,8 +551,11 @@ export default function CambioScreen() {
         const internalOutUi = parseFloat(toAmount) || 0;
         await notificationService.pushNotification({
           type: 'swap',
-          title: 'Swap realizado',
-          description: `Você trocou ${amt} ${fromToken.symbol} por ${internalOutUi.toFixed(2)} ${toToken.symbol}.`,
+          title: t('Swap realizado'),
+          description: t('Você trocou {amount} {from} por {out} {to}.', {
+            amount: String(amt), from: fromToken.symbol,
+            out: internalOutUi.toFixed(2), to: toToken.symbol,
+          }),
           amount: `+${internalOutUi.toFixed(2)}`,
           currency: toToken.symbol,
           data: { hash: res.hash, via: 'internal', from: fromToken.symbol, to: toToken.symbol },
@@ -565,7 +574,7 @@ export default function CambioScreen() {
 
     } catch (e: any) {
       console.error('[Swap] Error:', e);
-      const friendly = translateError(e) || t('Erro inesperado');
+      const friendly = translateError(e, t) || t('Erro inesperado');
       setSwapModalStatus('error');
       setSwapModalMessage(friendly);
 
@@ -788,7 +797,7 @@ export default function CambioScreen() {
                    <Text style={styles.quoteValue}>{(quote.slippageBps / 100).toFixed(2)}%</Text>
                  </View>
                  <View style={styles.quoteRow}>
-                   <Text style={[styles.quoteLabel, {color: V.gold, fontSize: 10}]}>Taxa Verum: 2% (automática)</Text>
+                   <Text style={[styles.quoteLabel, {color: V.gold, fontSize: 10}]}>{t('Taxa Verum: 2% (automática)')}</Text>
                  </View>
                  {isFetchingQuote && (
                    <View style={styles.quoteRow}>
@@ -824,7 +833,7 @@ export default function CambioScreen() {
                <View style={[styles.quotePill, {borderColor: V.danger, flexDirection: 'column', alignItems: 'flex-start', gap: 4}]}>
                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                    <Feather name="alert-triangle" size={12} color={V.danger} />
-                   <Text style={[styles.quotePillT, {color: V.danger}]}>Sem cotação disponível</Text>
+                   <Text style={[styles.quotePillT, {color: V.danger}]}>{t('Sem cotação disponível')}</Text>
                  </View>
                  <Text style={[styles.quotePillT, {color: V.muted, fontSize: 10}]} numberOfLines={3}>
                    {quoteError}
@@ -931,7 +940,7 @@ export default function CambioScreen() {
                       </Text>
                     </View>
                   )}
-                  <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveT}>LIVE</Text></View>
+                  <View style={styles.live}><View style={styles.liveDot} /><Text style={styles.liveT}>{t('LIVE')}</Text></View>
                </TouchableOpacity>
              );
            })}
@@ -959,40 +968,40 @@ export default function CambioScreen() {
                
                {isSearchingTokens && <ActivityIndicator color={V.gold} style={{marginVertical: 12}} />}
                
-               {!isSearchingTokens && customTokens.map(t => (
-                 <TouchableOpacity key={t.mint} style={styles.sheetItem} onPress={async () => {
+               {!isSearchingTokens && customTokens.map(ct => (
+                 <TouchableOpacity key={ct.mint} style={styles.sheetItem} onPress={async () => {
                    let decimals = 6; // default
                    try {
                      const { PublicKey } = require('@solana/web3.js');
                      const conn = transactionService.getConnection();
-                     const info = await conn.getParsedAccountInfo(new PublicKey(t.mint));
+                     const info = await conn.getParsedAccountInfo(new PublicKey(ct.mint));
                      if ((info.value?.data as any)?.parsed?.info?.decimals) {
                        decimals = (info.value?.data as any).parsed.info.decimals;
                      }
                    } catch(e) {}
-                   
-                   const selectedToken = { ...t, decimals };
+
+                   const selectedToken = { ...ct, decimals };
                    if (modalSide==='from') setFromToken(selectedToken); else setToToken(selectedToken);
-                   
+
                    try {
                      const AS = require('@react-native-async-storage/async-storage').default;
                      const existingStr = await AS.getItem('@custom_tokens');
                      const existing = existingStr ? JSON.parse(existingStr) : [];
-                     if (!existing.some((x: any) => x.mint === t.mint)) {
+                     if (!existing.some((x: any) => x.mint === ct.mint)) {
                        existing.push(selectedToken);
                        await AS.setItem('@custom_tokens', JSON.stringify(existing));
                      }
                    } catch(e) {}
-                   
+
                    // Preço do token customizado vem via SettingsContext (WebSocket)
                    setIsTokenModalVisible(false);
                  }}>
-                    <Image source={typeof t.imageUrl === 'string' ? { uri: t.imageUrl } : t.imageUrl} style={styles.sheetIcon} />
+                    <Image source={typeof ct.imageUrl === 'string' ? { uri: ct.imageUrl } : ct.imageUrl} style={styles.sheetIcon} />
                     <View style={{flex:1, marginLeft: 12}}>
-                        <Text style={styles.sheetSym}>{t.symbol}</Text>
-                        <Text style={styles.sheetName}>{t.name}</Text>
+                        <Text style={styles.sheetSym}>{ct.symbol}</Text>
+                        <Text style={styles.sheetName}>{ct.name}</Text>
                     </View>
-                    <Text style={{fontSize: 10, color: V.gold, fontFamily: F.bold, backgroundColor: 'rgba(201,168,76,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4}}>NEW</Text>
+                    <Text style={{fontSize: 10, color: V.gold, fontFamily: F.bold, backgroundColor: 'rgba(201,168,76,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4}}>{t('NEW')}</Text>
                  </TouchableOpacity>
                ))}
             </ScrollView>

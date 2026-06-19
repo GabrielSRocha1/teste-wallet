@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type Language = 'en' | 'es' | 'pt';
-export type Currency = 'USD' | 'BRL' | 'PYG';
+export type Language =
+  | 'en' | 'es' | 'pt' | 'fr' | 'de' | 'it'
+  | 'zh' | 'ja' | 'ko' | 'ru' | 'ar' | 'hi'
+  | 'tr' | 'nl' | 'pl';
+export type Currency =
+  | 'USD' | 'EUR' | 'BRL' | 'PYG'
+  | 'CNY' | 'JPY' | 'KRW' | 'RUB'
+  | 'SAR' | 'INR' | 'TRY' | 'PLN';
 
 const LANGUAGE_KEY = 'user_language';
 const CURRENCY_KEY = 'user_currency';
@@ -9,7 +15,7 @@ const NETWORK_KEY = '@solana_network';
 
 export const getLanguage = async (): Promise<Language> => {
   const lang = await AsyncStorage.getItem(LANGUAGE_KEY);
-  return (lang as Language) || 'pt';
+  return (lang as Language) || 'en';
 };
 
 export const setLanguage = async (lang: Language) => {

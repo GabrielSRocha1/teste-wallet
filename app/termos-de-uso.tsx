@@ -4,16 +4,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Header from '@/components/Header';
 import { V, F } from '@/constants/theme';
+import { useSettings } from '@/constants/SettingsContext';
 
 export default function TermosDeUsoScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={V.bg} />
 
       <Header
-        title="Terms of Service"
+        title={t('Terms of Service')}
         onBackPress={() => router.back()}
       />
 
@@ -22,10 +24,10 @@ export default function TermosDeUsoScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.titleBox}>
-          <Text style={styles.title}>TERMS OF SERVICE</Text>
+          <Text style={styles.title}>{t('TERMS OF SERVICE')}</Text>
           <Text style={styles.subtitle}>VERUM CRYPTO FREEPORT</Text>
           <View style={styles.goldLine} />
-          <Text style={styles.updateDate}>Last Updated: March 29, 2026</Text>
+          <Text style={styles.updateDate}>{t('Last Updated: March 29, 2026')}</Text>
         </View>
 
         <View style={styles.contentCard}>
@@ -106,7 +108,7 @@ export default function TermosDeUsoScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>I UNDERSTAND AND ACCEPT</Text>
+          <Text style={styles.backButtonText}>{t('I UNDERSTAND AND ACCEPT')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -114,13 +116,14 @@ export default function TermosDeUsoScreen() {
 }
 
 function Section({ number, title, content }: { number: string, title: string, content: string }) {
+  const { t } = useSettings();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <View style={styles.numberBadge}>
           <Text style={styles.numberText}>{number}</Text>
         </View>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionTitle}>{t(title)}</Text>
       </View>
       <Text style={styles.sectionContent}>{content.replace(/\\n/g, '\n')}</Text>
     </View>

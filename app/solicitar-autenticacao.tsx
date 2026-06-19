@@ -6,22 +6,24 @@ import { router } from 'expo-router';
 import Header from '@/components/Header';
 import { getAuthFrequency, setAuthFrequency } from '@/constants/biometrics-storage';
 import { V, F, PAD } from '@/constants/theme';
+import { useSettings } from '@/constants/SettingsContext';
 
 export default function SolicitarAutenticacaoScreen() {
   const insets = useSafeAreaInsets();
-  
+  const { t } = useSettings();
+
   const options = [
-    { id: 'always', label: 'Cada vez que abrir o app' },
-    { id: '1min', label: 'Após 1 minuto' },
-    { id: '5min', label: 'Após 5 minutos' },
-    { id: '10min', label: 'Após 10 minutos' },
-    { id: '15min', label: 'Após 15 minutos' },
-    { id: '30min', label: 'Após 30 minutos' },
-    { id: '1hour', label: 'Após 1 hora' },
-    { id: '4hours', label: 'Após 4 horas' },
-    { id: '8hours', label: 'Após 8 horas' },
-    { id: '24hours', label: 'Após 24 horas' },
-    { id: 'never', label: 'Nunca' },
+    { id: 'always',   label: t('Cada vez que abrir o app') },
+    { id: '1min',     label: t('Após 1 minuto') },
+    { id: '5min',     label: t('Após 5 minutos') },
+    { id: '10min',    label: t('Após 10 minutos') },
+    { id: '15min',    label: t('Após 15 minutos') },
+    { id: '30min',    label: t('Após 30 minutos') },
+    { id: '1hour',    label: t('Após 1 hora') },
+    { id: '4hours',   label: t('Após 4 horas') },
+    { id: '8hours',   label: t('Após 8 horas') },
+    { id: '24hours',  label: t('Após 24 horas') },
+    { id: 'never',    label: t('Nunca') },
   ];
 
   const [selectedOption, setSelectedOption] = useState('always');
@@ -40,9 +42,9 @@ export default function SolicitarAutenticacaoScreen() {
       <Header onBackPress={() => router.back()} />
 
       <View style={styles.titleBox}>
-          <Text style={styles.title}>FREQUÊNCIA</Text>
+          <Text style={styles.title}>{t('FREQUÊNCIA')}</Text>
           <View style={styles.goldLine} />
-          <Text style={styles.subtitle}>Defina quando o app deve solicitar autenticação biométrica.</Text>
+          <Text style={styles.subtitle}>{t('Defina quando o app deve solicitar autenticação biométrica.')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -75,7 +77,7 @@ export default function SolicitarAutenticacaoScreen() {
         <View style={styles.infoBox}>
           <Feather name="shield" size={18} color={V.gold} />
           <Text style={styles.infoText}>
-            Recomendamos o uso da autenticação sempre que o aplicativo for aberto para garantir a máxima segurança dos seus ativos no ecossistema Verun Crypto.
+            {t('Recomendamos o uso da autenticação sempre que o aplicativo for aberto para garantir a máxima segurança dos seus ativos no ecossistema Verun Crypto.')}
           </Text>
         </View>
       </ScrollView>

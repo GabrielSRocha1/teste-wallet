@@ -1,0 +1,225 @@
+e que esta transação é irreversível e não passível de estorno.
+foi paga e confirmada na blockchain pelo contrato ID #
+* O valor mínimo do depósito é de R$ 35,00
+. Sem ela, você perderá permanentemente o acesso aos seus fundos se desinstalar o app ou trocar de dispositivo.
+1 SOL ≈ R$ {price}
+A conversão para SOL será processada automaticamente após a confirmação.
+A cotação expirou. O valor será atualizado, por favor confirme e tente novamente.
+A troca de ativos foi confirmada com sucesso.
+A troca foi confirmada on-chain via Raydium.
+Abra seu app bancário e escaneie o QR Code
+Abrir no GeckoTerminal
+Agência
+Aguardando liquidez na blockchain
+ALTERAR E-MAIL
+ALTERAR TELEFONE
+Anote as 12 palavras abaixo em papel físico. Sem esta frase você perde acesso à carteira para sempre. A Verum não tem cópia.
+Antes de sair, certifique-se de que salvou sua
+Após a confirmação do seu pagamento, o SOL será enviado para sua carteira.
+Área de transferência vazia
+Assinando e enviando para a rede...
+ATENÇÃO!
+Ativação instantânea via QR Code
+Atividade
+ATIVO DE DESTINO
+Ativo não suportado ou sem contrato definido. Selecione um ativo da sua carteira.
+Atualizando banco de dados...
+Autentique-se para continuar acessando seus ativos.
+Autentique-se para revelar
+AUTORIZAÇÃO
+Banco
+BEM-VINDO AO VERUN CRYPTO
+Biometria não disponível ou não configurada no dispositivo.
+Biometria vinculada com sucesso! Agora você poderá efetuar transações e ver chaves apenas com sua digital/rosto.
+Buscando ativos na rede...
+Buscando melhor cotação...
+Buscando par...
+Carregando gráfico...
+Carregando...
+CARTEIRA BLOQUEADA
+Certifique-se que o destinatário e a rede estão corretos. Uma taxa administrativa de $0.50 (mínimo) ou 2% será cobrada.
+Chave Pública
+CNPJ
+CÓDIGO COPIA E COLA
+Cole sua frase de 12 palavras e crie um PIN de 6 dígitos para proteger sua carteira neste dispositivo.
+Compreendo que meus ativos ficarão bloqueados por
+CONFIGURAÇÃO DO CONTRATO
+CONFIRMAR INVESTIMENTO
+Confirme a transação para enviar
+CONFIRME SEU PIN
+Confirme sua senha mestre para permitir o uso da biometria em transações:
+Construindo transação...
+Continuar e Sair
+CONTRATAR VESTING
+Converta BRL para SOL instantaneamente através do ecossistema Verum Crypto.
+COPIADO!
+Copiar link
+Copie a frase de recuperação antes de tocar em
+Cotação Expirada
+CRIAR CARTEIRA
+CRIAR PIN DE ACESSO
+CRIE SEU PIN
+CRONOGRAMA DE LIBERAÇÃO
+Custo Total (Envio + Taxa 2%)
+Dados atualizados com sucesso!
+DADOS DA CONTA INTER
+Dados de simulação expirados. Por favor, inicie o envio novamente.
+Dados fornecidos por
+DADOS TÉCNICOS
+DEPÓSITO REGISTRADO!
+DESBLOQUEAR
+Desbloquear Carteira Verum
+Deslogar deste dispositivo
+Digitar PIN novamente
+Digite sua Senha
+Digite sua senha mestre para assinar a transação:
+Digite sua senha mestre para revelar a chave:
+Digite sua senha mestre para revelar a frase:
+Digite sua senha mestre para transferir ativos:
+Digite sua senha mestre para visualizar sua carteira:
+Digite sua senha.
+Disponível:
+DOMINGO
+Duração
+e necessita de ao menos
+é um token interno da Verum e ainda não tem negociação ativa na blockchain. O gráfico e o preço aparecerão automaticamente quando houver pool de liquidez.
+Enviando para a blockhain...
+Envie apenas ativos na rede Solana (SPL) para este endereço. Outros ativos serão perdidos permanentemente.
+Erro
+Erro ao criar
+Erro ao registrar depósito. Tente novamente.
+Erro ao registrar pedido. Tente novamente.
+Erro inesperado ao criar a cobrança PIX. Tente novamente.
+Erro na Recuperação
+Escaneie o QR Code ou copie o código no seu app bancário. Validade: 30 minutos.
+Escolha 6 dígitos para proteger sua carteira
+Escolha como deseja ativar seu contrato:
+Executando na blockchain...
+Falha ao enviar transação. Verifique sua conexão e saldo.
+Falha ao gerar PIX
+falha desconhecida
+Falha na simulação. Verifique seu saldo e tente novamente.
+Falha no Pagamento
+Faltam
+FRASE DE RECUPERAÇÃO (12 PALAVRAS)
+Frase de recuperação inválida. Deve conter 12 palavras.
+Frase Secreta
+Garantia de liquidez e valorização através de contratos inteligentes on-chain.
+gas da rede
+GERANDO...
+Guarde em local seguro
+HOJE
+ID DA MOEDA (MINT)
+ID DO PEDIDO
+Insira a frase secreta e crie um PIN
+Insira seu novo endereço de e-mail para atualizar seu cadastro:
+Insira seu novo número de telefone para contato:
+INVESTIR
+Invista nos ativos do ecossistema Verun Crypto e acelere seu crescimento patrimonial.
+Ir pegar minha frase secreta
+Isso pode levar até 90 segundos dependendo da rede.
+JÁ SALVEI MINHA FRASE
+mas possui apenas
+Mês
+meses
+Meses
+Mínimo R$ 35,00
+MOVIMENTAÇÃO DO TOKEN
+Não autenticado.
+Não cadastrado
+Não foi possível colar
+Não foi possível gerar o QR Code PIX porque o seu KYC ainda não foi concluído. Verifique se a verificação de identidade já foi feita acessando a página
+Nenhuma atividade encontrada
+NOME DO BENEFICIÁRIO
+Novo Investidor
+Número de conta
+O Destinatário Receberá
+O PIN deve ter 6 dígitos.
+O QR Code pede um token que você não possui ou que não está habilitado nesta carteira.
+O valor mínimo de pagamento via PIX é R$ 35,00. Ajuste o valor antes de continuar.
+Obtendo transação Jupiter...
+Ocorreu um erro ao atualizar seus dados no banco.
+Ocorreu um erro ao simular a transação.
+ONTEM
+Os PINs não coincidem.
+PAGAMENTO RECEBIDO
+PAGAR
+Pagar com PIX
+PAGAR VIA PIX
+Palavras inválidas. Verifique a frase e tente novamente.
+para a tesouraria.
+PEDIDO REGISTRADO!
+PERCENTUAL
+PERÍODO
+Permita o acesso à área de transferência nas configurações do navegador, ou cole manualmente no campo (toque longo no input → Colar).
+Por favor, insira um valor de investimento.
+Posicione o QR Code no centro
+PREÇO
+Preço Atual
+PREVISÃO
+PROCESSANDO
+PROCESSANDO...
+QR Code PIX não retornado pelo gateway.
+Quantidade de Tokens
+QUARTA-FEIRA
+QUINTA-FEIRA
+Recomendamos ter 0.005 SOL para garantir a criação de novas contas de token (ATA), caso necessário.
+Rede Solana
+Referência:
+Registrando transação...
+Repita o PIN para confirmar
+Repita os 6 dígitos para confirmar
+SÁBADO
+Sair da Conta
+Saldo
+Saldo da Wallet
+Saldo de SOL insuficiente para o gas da rede
+Saldo em SOL insuficiente para pagar as taxas da rede.
+Saldo Insuficiente
+Saldo insuficiente de
+Saldo insuficiente para enviar
+Saldo insuficiente para envio
+SALDOS ENCONTRADOS
+SALVAR
+SEGUNDA-FEIRA
+SELECIONAR TOKEN
+Sem cotação disponível. Aguarde e tente novamente.
+Senha incorreta. Tente novamente.
+Senha incorreta. Verifique e tente novamente.
+SESSÃO
+Seu investimento no futuro é agora. Suas criptos serão liberadas gradualmente pelo Smart Contract Verum, garantindo segurança e transparência.
+Seu pedido foi salvo. Assim que o {token} chegar na sua carteira, ele será creditado automaticamente.
+SEXTA-FEIRA
+SIMULAÇÃO DA REDE
+Simulando transação na rede...
+SITE OFICIAL
+Sua compra de
+Sua frase nunca sai do seu dispositivo. O PIN é usado apenas para criptografar as chaves localmente.
+SUA FRASE SECRETA
+Sucesso
+Swap
+SWAP
+Swap Realizado
+Taxa Administrativa
+Tem certeza que deseja desconectar
+Tem certeza que deseja desconectar {count} dApp(s)?\n\nTodos perderão acesso à sua carteira.
+TERÇA-FEIRA
+Termos de Uso
+Todo o recebimento na rede Solana (SPL) para qualquer ativo (USDT, USDC, BDC, ESCT, SOL).
+Transação simulada com sucesso na Solana. Revise os detalhes:
+USAR BIOMETRIA
+USAR PIN
+Usuário
+Usuário não autenticado.
+Validando destinatário...
+Valor mínimo
+VER DADOS DE TRANSFERÊNCIA
+Verificação de identidade pendente
+Verificando senha...
+Verifique se o seu saldo cobre a transferência e as taxas da rede e da Verum
+VINCULAR BIOMETRIA
+Você precisa de
+Você Receberá (aprox.)
+VOLTAR AO INÍCIO
+VOLTAR PARA INÍCIO
+Wallet não encontrada. Reconecte sua carteira.

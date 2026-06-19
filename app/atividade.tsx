@@ -211,7 +211,7 @@ export default function AtividadeScreen() {
                           )
                         )}
                         {title === 'Unknown' && <Text style={styles.valIn}>+0.00000001 {tx.moeda}</Text>}
-                        {isFailed && <View style={styles.failedBadge}><Text style={styles.failedText}>Failed</Text></View>}
+                        {isFailed && <View style={styles.failedBadge}><Text style={styles.failedText}>{t('Failed')}</Text></View>}
                       </View>
                     </View>
                   );

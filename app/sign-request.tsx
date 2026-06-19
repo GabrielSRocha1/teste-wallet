@@ -20,6 +20,7 @@ import { Buffer } from 'buffer';
 import { useConnection } from '@/src/context/ConnectionContext';
 import PasswordModal from '@/components/PasswordModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSettings } from '@/constants/SettingsContext';
 import type {
   SignRequest,
   SignRequestAction,
@@ -65,23 +66,24 @@ function parseTransactionDetail(txBase64: string): TransactionDetail {
 // ─── Transaction detail card ──────────────────────────────────────────────────
 
 function TransactionDetailCard({ detail, index }: { detail: TransactionDetail; index?: number }) {
+  const { t } = useSettings();
   if (detail.parseError) return null;
 
   return (
     <View style={s.detailCard}>
       {index !== undefined && (
-        <Text style={s.detailCardTitle}>Transação {index + 1}</Text>
+        <Text style={s.detailCardTitle}>{t('Transação')} {index + 1}</Text>
       )}
       <View style={s.detailRow}>
-        <Text style={s.detailLabel}>Instruções</Text>
+        <Text style={s.detailLabel}>{t('Instruções')}</Text>
         <Text style={s.detailValue}>{detail.numInstructions}</Text>
       </View>
       <View style={s.detailRow}>
-        <Text style={s.detailLabel}>Contas envolvidas</Text>
+        <Text style={s.detailLabel}>{t('Contas envolvidas')}</Text>
         <Text style={s.detailValue}>{detail.numAccounts}</Text>
       </View>
       <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
-        <Text style={s.detailLabel}>Taxa estimada</Text>
+        <Text style={s.detailLabel}>{t('Taxa estimada')}</Text>
         <Text style={[s.detailValue, { color: V.gold }]}>
           {detail.estimatedFeeSol.toFixed(6)} SOL
         </Text>
@@ -92,10 +94,10 @@ function TransactionDetailCard({ detail, index }: { detail: TransactionDetail; i
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatError(e: unknown): string {
+function formatError(e: unknown, fallback: string): string {
   if (e instanceof Error) return e.message;
   if (typeof e === 'string') return e;
-  return 'Erro desconhecido.';
+  return fallback;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -103,6 +105,7 @@ function formatError(e: unknown): string {
 export default function SignRequestScreen() {
   const { pendingSignRequest, setPendingSignRequest, sessions, reloadSessions } = useConnection();
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
 
   const [session, setSession] = useState<ConnectedSession | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -139,7 +142,7 @@ export default function SignRequestScreen() {
           const matchedSession = sessions.find(s => s.dappEncryptionPublicKey === dappPK);
 
           if (!matchedSession?.sharedSecret) {
-            throw new Error('Sessão não encontrada para a chave do dApp informada.');
+            throw new Error(t('Sessão não encontrada para a chave do dApp informada.'));
           }
 
           setSession(matchedSession);
@@ -169,7 +172,7 @@ export default function SignRequestScreen() {
             const msgBytes = decodeBase58(decryptedJson.message as string);
             setMessageBase64(Buffer.from(msgBytes).toString('base64'));
           } else {
-            throw new Error('Payload não contém dados esperados.');
+            throw new Error(t('Payload não contém dados esperados.'));
           }
 
         } else {
@@ -194,7 +197,7 @@ export default function SignRequestScreen() {
           }
         }
       } catch (e) {
-        setError(formatError(e));
+        setError(formatError(e, t('Erro desconhecido.')));
       }
     }
 
@@ -223,7 +226,7 @@ export default function SignRequestScreen() {
         if (hasWallet) {
           setUnlockVisible(true);
         } else {
-          throw new Error('Nenhuma carteira encontrada para assinar.');
+          throw new Error(t('Nenhuma carteira encontrada para assinar.'));
         }
         setLoading(false);
         return;
@@ -267,7 +270,7 @@ export default function SignRequestScreen() {
         responsePayload.session = decryptedPayload?.session;
 
         const sharedSecretStr = session?.sharedSecret;
-        if (!sharedSecretStr) throw new Error('Sessão E2EE corrompida.');
+        if (!sharedSecretStr) throw new Error(t('Sessão E2EE corrompida.'));
 
         const sharedSecret = decodeBase58(sharedSecretStr);
         const { nonce, ciphertext } = encryptionService.encryptPayload(responsePayload, sharedSecret);
@@ -304,7 +307,7 @@ export default function SignRequestScreen() {
       }
 
     } catch (e) {
-      setError(formatError(e));
+      setError(formatError(e, t('Erro desconhecido.')));
       setLoading(false);
     }
   };
@@ -320,7 +323,7 @@ export default function SignRequestScreen() {
       setUnlockVisible(false);
       setTimeout(() => handleApprove(), 200);
     } catch (e) {
-      setUnlockError(formatError(e));
+      setUnlockError(formatError(e, t('Erro desconhecido.')));
     } finally {
       setUnlocking(false);
     }
@@ -381,14 +384,16 @@ export default function SignRequestScreen() {
           {/* Description */}
           <Text style={s.description}>
             {isSignMessage
-              ? 'Este aplicativo está solicitando sua assinatura criptográfica.'
-              : `Este aplicativo deseja ${transactions.length > 1 ? `enviar ${transactions.length} transações` : 'realizar uma transação'} usando sua carteira.`}
+              ? t('Este aplicativo está solicitando sua assinatura criptográfica.')
+              : (transactions.length > 1
+                  ? t('Este aplicativo deseja enviar {count} transações usando sua carteira.', { count: String(transactions.length) })
+                  : t('Este aplicativo deseja realizar uma transação usando sua carteira.'))}
           </Text>
 
           {/* Message text */}
           {isSignMessage && messageText && (
             <View style={s.messageBox}>
-              <Text style={s.messageLabel}>CONTEÚDO DA MENSAGEM</Text>
+              <Text style={s.messageLabel}>{t('CONTEÚDO DA MENSAGEM')}</Text>
               <ScrollView style={s.messageScroll} nestedScrollEnabled>
                 <Text style={s.messageText}>{messageText}</Text>
               </ScrollView>
@@ -412,7 +417,7 @@ export default function SignRequestScreen() {
             onPress={handleReject}
             disabled={loading}
           >
-            <Text style={s.rejectButtonText}>Rejeitar</Text>
+            <Text style={s.rejectButtonText}>{t('Rejeitar')}</Text>
           </Pressable>
 
           <Pressable
@@ -423,7 +428,7 @@ export default function SignRequestScreen() {
             {loading ? (
               <ActivityIndicator color={V.bg} />
             ) : (
-              <Text style={s.approveButtonText}>Aprovar</Text>
+              <Text style={s.approveButtonText}>{t('Aprovar')}</Text>
             )}
           </Pressable>
         </View>
@@ -434,8 +439,8 @@ export default function SignRequestScreen() {
         onClose={() => { setUnlockVisible(false); setUnlockError(null); }}
         onConfirm={handleUnlock}
         loading={isUnlocking}
-        title="AUTORIZAR ASSINATURA"
-        description="Digite seu PIN/Senha para desbloquear a carteira e assinar."
+        title={t('AUTORIZAR ASSINATURA')}
+        description={t('Digite seu PIN/Senha para desbloquear a carteira e assinar.')}
         errorMessage={unlockError ?? undefined}
       />
     </View>

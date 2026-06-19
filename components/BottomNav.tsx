@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V, F } from '@/constants/theme';
+import { useSettings } from '@/constants/SettingsContext';
 
 interface BottomNavProps {
   activeRoute: 'index' | 'wallet' | 'cambio' | 'investir' | 'vesting' | 'explore' | 'none';
@@ -11,6 +12,7 @@ interface BottomNavProps {
 
 export default function BottomNav({ activeRoute }: BottomNavProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
 
   const getColor = (route: string) => activeRoute === route ? V.gold : V.muted;
 
@@ -19,14 +21,14 @@ export default function BottomNav({ activeRoute }: BottomNavProps) {
       {/* Home */}
       <TouchableOpacity style={styles.navItem} onPress={() => router.push('/' as any)}>
         <Feather name="home" size={22} color={getColor('index')} />
-        <Text style={[styles.navText, { color: getColor('index') }]}>Home</Text>
+        <Text style={[styles.navText, { color: getColor('index') }]}>{t('Home')}</Text>
         {activeRoute === 'index' && <View style={styles.activeDot} />}
       </TouchableOpacity>
 
       {/* Carteira */}
       <TouchableOpacity style={styles.navItem} onPress={() => router.push('/wallet' as any)}>
         <Feather name="briefcase" size={22} color={getColor('wallet')} />
-        <Text style={[styles.navText, { color: getColor('wallet') }]}>Carteira</Text>
+        <Text style={[styles.navText, { color: getColor('wallet') }]}>{t('Carteira')}</Text>
         {activeRoute === 'wallet' && <View style={styles.activeDot} />}
       </TouchableOpacity>
 
@@ -64,14 +66,14 @@ export default function BottomNav({ activeRoute }: BottomNavProps) {
       {/* Câmbio */}
       <TouchableOpacity style={styles.navItem} onPress={() => router.push('/cambio' as any)}>
         <Feather name="refresh-ccw" size={22} color={getColor('cambio')} />
-        <Text style={[styles.navText, { color: getColor('cambio') }]}>Câmbio</Text>
+        <Text style={[styles.navText, { color: getColor('cambio') }]}>{t('Câmbio')}</Text>
         {activeRoute === 'cambio' && <View style={styles.activeDot} />}
       </TouchableOpacity>
 
       {/* Investir */}
       <TouchableOpacity style={styles.navItem} onPress={() => router.push('/investir' as any)}>
         <Feather name="trending-up" size={22} color={getColor('investir')} />
-        <Text style={[styles.navText, { color: getColor('investir') }]}>Investir</Text>
+        <Text style={[styles.navText, { color: getColor('investir') }]}>{t('Investir')}</Text>
         {activeRoute === 'investir' && <View style={styles.activeDot} />}
       </TouchableOpacity>
     </View>

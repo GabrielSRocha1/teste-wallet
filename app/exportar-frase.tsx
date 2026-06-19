@@ -87,16 +87,16 @@ export default function ExportarFraseScreen() {
 
 
   const authenticateWithBiometrics = async () => {
-    const result = await LocalAuthentication.authenticateAsync({ promptMessage: 'Autentique-se' });
+    const result = await LocalAuthentication.authenticateAsync({ promptMessage: t('Autentique-se') });
     if (result.success) {
       const sessionMnemonic = keyManager.getSessionMnemonic();
-      if (sessionMnemonic) { 
+      if (sessionMnemonic) {
         require('@/constants/biometrics-storage').updateLastAuthTime();
-        setSecretPhrase(sessionMnemonic); 
-        setIsSecretVisible(true); 
-        setIsSecurityModalVisible(false); 
+        setSecretPhrase(sessionMnemonic);
+        setIsSecretVisible(true);
+        setIsSecurityModalVisible(false);
       } else {
-        Alert.alert("Sessão Expirada", "Por favor, digite sua senha.");
+        Alert.alert(t('Sessão Expirada'), t('Por favor, digite sua senha.'));
       }
     }
   };
@@ -133,13 +133,13 @@ export default function ExportarFraseScreen() {
         <View style={styles.iconBox}>
           <Image source={data.image} style={{ width: '80%', height: '80%' }} resizeMode="contain" />
         </View>
-        <Text style={[styles.slideTitle, {color: data.color}]}>{data.title}</Text>
-        <Text style={styles.slideDesc}>{data.description}</Text>
+        <Text style={[styles.slideTitle, {color: data.color}]}>{t(data.title)}</Text>
+        <Text style={styles.slideDesc}>{t(data.description)}</Text>
         <View style={styles.dots}>
             {[0, 1, 2, 3].map(i => <View key={i} style={[styles.dot, currentSlide === i && styles.dotActive]} />)}
         </View>
         <TouchableOpacity style={styles.nextBtn} onPress={() => setCurrentSlide(currentSlide + 1)}>
-            <Text style={styles.nextBtnT}>PRÓXIMO</Text>
+            <Text style={styles.nextBtnT}>{t('PRÓXIMO')}</Text>
             <Feather name="arrow-right" size={18} color={V.bg} />
         </TouchableOpacity>
       </View>
@@ -155,9 +155,9 @@ export default function ExportarFraseScreen() {
         {currentSlide < 3 ? renderSlide() : (
           <View style={styles.finalView}>
              <View style={styles.titleBox}>
-                <Text style={styles.title}>FRASE DE RECUPERAÇÃO</Text>
+                <Text style={styles.title}>{t('FRASE DE RECUPERAÇÃO')}</Text>
                 <View style={styles.goldLine} />
-                <Text style={styles.subtitle}>Revele as 12 palavras para realizar o backup manual da sua conta.</Text>
+                <Text style={styles.subtitle}>{t('Revele as 12 palavras para realizar o backup manual da sua conta.')}</Text>
              </View>
 
              <View style={[styles.phraseBox, !isSecretVisible && {justifyContent: 'center'}]}>
@@ -171,30 +171,30 @@ export default function ExportarFraseScreen() {
                     ))}
                   </View>
                 ) : (
-                  <Text style={styles.hiddenT}>Sua frase está oculta para proteção</Text>
+                  <Text style={styles.hiddenT}>{t('Sua frase está oculta para proteção')}</Text>
                 )}
              </View>
 
              {isSecretVisible && (
                <TouchableOpacity style={styles.copyC} onPress={copyToClipboard}>
                  <Feather name={copied ? "check" : "copy"} size={16} color={copied ? V.success : V.gold} />
-                 <Text style={[styles.copyT, copied && {color: V.success}]}>{copied ? 'COPIADO' : 'COPIAR FRASE'}</Text>
+                 <Text style={[styles.copyT, copied && {color: V.success}]}>{copied ? t('COPIADO') : t('COPIAR FRASE')}</Text>
                </TouchableOpacity>
              )}
 
              <View style={styles.alert}>
                 <Feather name="alert-triangle" size={18} color={V.danger} />
-                <Text style={styles.alertT}>Nunca compartilhe estas palavras. O extravio resultará em perda irreparável dos ativos.</Text>
+                <Text style={styles.alertT}>{t('Nunca compartilhe estas palavras. O extravio resultará em perda irreparável dos ativos.')}</Text>
              </View>
 
              <TouchableOpacity style={[styles.mainBtn, isSecretVisible && styles.mainBtnOff]} onPress={handleToggleVisibility}>
                 <Feather name={isSecretVisible ? "eye-off" : "eye"} size={20} color={isSecretVisible ? V.muted : V.bg} />
-                <Text style={[styles.mainBtnT, isSecretVisible && {color: V.muted}]}>{isSecretVisible ? 'OCULTAR FRASE' : 'REVELAR FRASE'}</Text>
+                <Text style={[styles.mainBtnT, isSecretVisible && {color: V.muted}]}>{isSecretVisible ? t('OCULTAR FRASE') : t('REVELAR FRASE')}</Text>
              </TouchableOpacity>
 
              <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/(tabs)/' as any)}>
                 <Feather name="home" size={18} color={V.gold} />
-                <Text style={styles.homeBtnT}>VOLTAR PARA HOME</Text>
+                <Text style={styles.homeBtnT}>{t('VOLTAR PARA HOME')}</Text>
              </TouchableOpacity>
           </View>
         )}

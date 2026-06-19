@@ -12,10 +12,10 @@ import type { ConnectionRequest } from '@/src/types/wallet.types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatError(e: unknown): string {
+function formatError(e: unknown, fallback: string): string {
   if (e instanceof Error) return e.message;
   if (typeof e === 'string') return e;
-  return 'Erro desconhecido. Tente novamente.';
+  return fallback;
 }
 
 const TIMEOUT_SECONDS = 30;
@@ -25,7 +25,7 @@ const TIMEOUT_SECONDS = 30;
 export default function ConnectApprovalScreen() {
   const { request } = useLocalSearchParams<{ request: string }>();
   const { approveSession, rejectSession, sessions } = useConnection();
-  const { network } = useSettings();
+  const { network, t } = useSettings();
   const router = useRouter();
 
   // Parse request param safely
@@ -89,7 +89,7 @@ export default function ConnectApprovalScreen() {
       }
       router.back();
     } catch (e) {
-      setError(formatError(e));
+      setError(formatError(e, t('Erro desconhecido. Tente novamente.')));
     } finally {
       setApproving(false);
     }
@@ -146,8 +146,8 @@ export default function ConnectApprovalScreen() {
         onClose={() => { setUnlockVisible(false); setUnlockError(null); }}
         onConfirm={handleUnlock}
         loading={isUnlocking}
-        title="DESBLOQUEAR CARTEIRA"
-        description="Digite seu PIN para autorizar a conexão."
+        title={t('DESBLOQUEAR CARTEIRA')}
+        description={t('Digite seu PIN para autorizar a conexão.')}
         errorMessage={unlockError ?? undefined}
       />
     </View>

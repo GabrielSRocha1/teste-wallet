@@ -12,11 +12,23 @@ import { useSettings } from '@/constants/SettingsContext';
 import { getUser, clearUser } from '@/constants/auth-storage';
 import { supabase } from '@/src/services/supabase';
 
+const NETWORK_OPTIONS: { code: 'mainnet' | 'devnet'; icon: '🌐' | '🧪'; label: string; description: string }[] = [
+  { code: 'mainnet', icon: '🌐', label: 'Mainnet', description: 'Principal' },
+  { code: 'devnet',  icon: '🧪', label: 'Devnet',  description: 'Teste' },
+];
+
 export default function SegurancaScreen() {
   const insets = useSafeAreaInsets();
   const [isSidebarVisible, setSidebarVisible] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
-  const { t } = useSettings();
+  const [isNetworkModalVisible, setIsNetworkModalVisible] = useState(false);
+  const { t, network, setNetwork } = useSettings();
+  const currentNetwork = NETWORK_OPTIONS.find(n => n.code === network) || NETWORK_OPTIONS[0];
+
+  const handleNetworkChange = (net: 'mainnet' | 'devnet') => {
+    setNetwork(net);
+    setIsNetworkModalVisible(false);
+  };
 
   const handleLogout = async () => {
     try { await supabase.auth.signOut(); } catch (e) {}
@@ -35,6 +47,32 @@ export default function SegurancaScreen() {
         <View style={styles.titleBox}>
           <Text style={styles.title}>{t('SEGURANÇA')}</Text>
           <View style={styles.goldLine} />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{t('Rede Solana').toUpperCase()}</Text>
+          <View style={styles.card}>
+            <View style={styles.networkItem}>
+              <View style={styles.networkHeader}>
+                <Feather name="server" size={16} color={V.gold} />
+                <Text style={styles.rowText}>{t('Rede Solana')}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.networkDropdown}
+                onPress={() => setIsNetworkModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.networkDropdownLeft}>
+                  <Text style={styles.networkDropdownIcon}>{currentNetwork.icon}</Text>
+                  <View>
+                    <Text style={styles.networkDropdownText}>{currentNetwork.label}</Text>
+                    <Text style={styles.networkDropdownSub}>{t(currentNetwork.description)}</Text>
+                  </View>
+                </View>
+                <Feather name="chevron-down" size={18} color={V.gold} />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -95,6 +133,42 @@ export default function SegurancaScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isNetworkModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsNetworkModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.networkModalContent}>
+            <View style={styles.networkModalHeader}>
+              <Text style={styles.modalTitle}>{t('Rede Solana').toUpperCase()}</Text>
+              <TouchableOpacity onPress={() => setIsNetworkModalVisible(false)}>
+                <Feather name="x" size={22} color={V.gold} />
+              </TouchableOpacity>
+            </View>
+            {NETWORK_OPTIONS.map(opt => {
+              const isActive = network === opt.code;
+              return (
+                <TouchableOpacity
+                  key={opt.code}
+                  style={[styles.networkOption, isActive && styles.networkOptionActive]}
+                  onPress={() => handleNetworkChange(opt.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.networkOptionIcon}>{opt.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.networkOptionLabel, isActive && styles.networkOptionLabelActive]}>{opt.label}</Text>
+                    <Text style={styles.networkOptionDesc}>{t(opt.description)}</Text>
+                  </View>
+                  {isActive && <Feather name="check" size={18} color={V.gold} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
 
       {/* Logout Confirmation Modal */}
       <Modal
@@ -259,4 +333,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: V.muted,
   },
+
+  networkItem: { padding: 16 },
+  networkHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  networkDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: V.surface2,
+    borderRadius: V.r8,
+    borderWidth: 1,
+    borderColor: V.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  networkDropdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  networkDropdownIcon: { fontSize: 22 },
+  networkDropdownText: { fontSize: 14, fontFamily: F.semi, color: V.text },
+  networkDropdownSub: { fontSize: 12, fontFamily: F.body, color: V.muted, marginTop: 2 },
+
+  networkModalContent: {
+    backgroundColor: V.surface1,
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderWidth: 1,
+    borderColor: V.border,
+    ...V.shadow,
+  },
+  networkModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  networkOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: V.r8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 6,
+  },
+  networkOptionActive: {
+    backgroundColor: 'rgba(201,168,76,0.1)',
+    borderColor: 'rgba(201,168,76,0.5)',
+  },
+  networkOptionIcon: { fontSize: 26 },
+  networkOptionLabel: { fontSize: 15, fontFamily: F.semi, color: V.text },
+  networkOptionLabelActive: { color: V.gold },
+  networkOptionDesc: { fontSize: 12, fontFamily: F.body, color: V.muted, marginTop: 2 },
 });

@@ -78,7 +78,7 @@ export default function LoginScreen() {
     if (upsertError) {
       console.error('[Supabase] Erro ao vincular perfil:', upsertError);
       if (upsertError.code === '42501') {
-        Alert.alert('Erro de Permissão', 'Não foi possível salvar seu perfil no Supabase.');
+        Alert.alert(t('Erro de Permissão'), t('Não foi possível salvar seu perfil no Supabase.'));
       }
       return false;
     }
@@ -650,7 +650,7 @@ export default function LoginScreen() {
                     <View style={styles.mnemonicInputBox}>
                       <TextInput
                         style={styles.mnemonicInput}
-                        placeholder="word1 word2 word3..."
+                        placeholder={t('word1 word2 word3...')}
                         placeholderTextColor={V.muted}
                         multiline
                         numberOfLines={4}

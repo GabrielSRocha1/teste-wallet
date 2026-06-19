@@ -3,13 +3,15 @@ import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useSettings } from '@/constants/SettingsContext';
 
 export default function ModalScreen() {
+  const { t } = useSettings();
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Este é um modal informativo</ThemedText>
+      <ThemedText type="title">{t('Este é um modal informativo')}</ThemedText>
       <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Voltar para a tela inicial</ThemedText>
+        <ThemedText type="link">{t('Voltar para a tela inicial')}</ThemedText>
       </Link>
     </ThemedView>
   );

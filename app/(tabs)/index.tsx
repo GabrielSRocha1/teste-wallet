@@ -227,7 +227,7 @@ export default function HomeScreen() {
           await notificationService.pushNotification({
             type: 'recebimento',
             title: t('Transferência recebida'),
-            description: t(`Você recebeu ${tx.valor} ${tx.moeda}.`),
+            description: t('Você recebeu {amount} {crypto}.', { amount: String(tx.valor), crypto: tx.moeda }),
             amount: `+${tx.valor}`,
             currency: `${tx.moeda}${recvUsdStr}`,
             data: tx.hash ? { hash: tx.hash } : undefined,

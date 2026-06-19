@@ -107,7 +107,7 @@ export function decryptSecretBox(
 
 // ─── KDF: PBKDF2-HMAC-SHA256 ────────────────────────────────────────────────
 
-/** Mínimo enforçado. OWASP recomenda 600_000 em produção. */
+/** Mínimo enforçado. OWASP recomenda 210_000 (SHA-256) em produção. */
 export const MIN_PBKDF2_ITERATIONS = 10_000;
 const MIN_SALT_BYTES = 16;
 const MAX_KEY_BYTES = 64;

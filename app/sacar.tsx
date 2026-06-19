@@ -9,11 +9,13 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V, F, PAD } from '@/constants/theme';
+import { useSettings } from '@/constants/SettingsContext';
 
 export default function SacarScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
   const [isSidebarVisible, setSidebarVisible] = useState(false);
-  const [bank, setBank] = useState('Selecione seu banco');
+  const [bank, setBank] = useState('');
   const [isBankDropdownOpen, setBankDropdownOpen] = useState(false);
   const [pixType, setPixType] = useState('CPF');
   const [isPixTypeDropdownOpen, setPixTypeDropdownOpen] = useState(false);
@@ -22,7 +24,7 @@ export default function SacarScreen() {
   const [phoneCountry, setPhoneCountry] = useState<Country>(countries[0]);
 
   const banks = ['Nubank', 'Itaú', 'Bradesco', 'Banco do Brasil', 'Santander', 'Inter', 'C6 Bank'];
-  const pixTypes = ['CPF', 'E-mail', 'Telefone', 'Chave Aleatória'];
+  const PIX_TYPE_KEYS = ['CPF', 'E-mail', 'Telefone', 'Chave Aleatória'];
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: V.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -33,34 +35,34 @@ export default function SacarScreen() {
         <TouchableWithoutFeedback onPress={() => { setBankDropdownOpen(false); setPixTypeDropdownOpen(false); }}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.titleBox}>
-              <Text style={styles.title}>SAQUE PIX</Text>
+              <Text style={styles.title}>{t('SAQUE PIX')}</Text>
               <View style={styles.goldLine} />
-              <Text style={styles.subtitle}>Converta seus lucros em USDT para BRL diretamente na sua conta bancária.</Text>
+              <Text style={styles.subtitle}>{t('Converta seus lucros em USDT para BRL diretamente na sua conta bancária.')}</Text>
             </View>
 
             <View style={styles.balanceCard}>
                <View style={styles.balIcon}><Text style={styles.balIconT}>$</Text></View>
                <View>
-                  <Text style={styles.balL}>SALDO DISPONÍVEL</Text>
+                  <Text style={styles.balL}>{t('SALDO DISPONÍVEL')}</Text>
                   <Text style={styles.balV}>0.00 USDT</Text>
                </View>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>DADOS DO BENEFICIÁRIO</Text>
-              
+              <Text style={styles.cardHeader}>{t('DADOS DO BENEFICIÁRIO')}</Text>
+
               <View style={styles.formGroup}>
-                <Text style={styles.label}>NOME DO TITULAR</Text>
+                <Text style={styles.label}>{t('NOME DO TITULAR')}</Text>
                 <View style={styles.inputBox}>
                   <Feather name="user" size={18} color={V.gold} style={{marginRight: 12}} />
-                  <TextInput style={styles.input} placeholder="Nome completo" placeholderTextColor={V.muted} />
+                  <TextInput style={styles.input} placeholder={t('Nome completo')} placeholderTextColor={V.muted} />
                 </View>
               </View>
 
               <View style={[styles.formGroup, { zIndex: 2 }]}>
-                <Text style={styles.label}>INSTITUIÇÃO BANCÁRIA</Text>
+                <Text style={styles.label}>{t('INSTITUIÇÃO BANCÁRIA')}</Text>
                 <TouchableOpacity style={styles.dropdown} onPress={() => { setPixTypeDropdownOpen(false); setBankDropdownOpen(!isBankDropdownOpen); }}>
-                  <Text style={[styles.dropText, bank.includes('Selecione') && { color: V.muted }]}>{bank}</Text>
+                  <Text style={[styles.dropText, !bank && { color: V.muted }]}>{bank || t('Selecione seu banco')}</Text>
                   <Feather name="chevron-down" size={20} color={V.gold} />
                 </TouchableOpacity>
                 {isBankDropdownOpen && (
@@ -75,16 +77,16 @@ export default function SacarScreen() {
               </View>
 
               <View style={[styles.formGroup, { zIndex: 1 }]}>
-                <Text style={styles.label}>TIPO DE CHAVE PIX</Text>
+                <Text style={styles.label}>{t('TIPO DE CHAVE PIX')}</Text>
                 <TouchableOpacity style={styles.dropdown} onPress={() => { setBankDropdownOpen(false); setPixTypeDropdownOpen(!isPixTypeDropdownOpen); }}>
-                  <Text style={styles.dropText}>{pixType}</Text>
+                  <Text style={styles.dropText}>{t(pixType)}</Text>
                   <Feather name="chevron-down" size={20} color={V.gold} />
                 </TouchableOpacity>
                 {isPixTypeDropdownOpen && (
                   <View style={styles.dropMenu}>
-                    {pixTypes.map(p => (
+                    {PIX_TYPE_KEYS.map(p => (
                       <TouchableOpacity key={p} style={styles.dropItem} onPress={() => { setPixType(p); setPixTypeDropdownOpen(false); }}>
-                        <Text style={styles.dropItemT}>{p}</Text>
+                        <Text style={styles.dropItemT}>{t(p)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -92,19 +94,19 @@ export default function SacarScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>CHAVE PIX</Text>
+                <Text style={styles.label}>{t('CHAVE PIX')}</Text>
                 {pixType === 'Telefone' ? (
                   <PhoneInput value={phone} onChangeText={setPhone} placeholder="00 00000-0000" selectedCountry={phoneCountry} onCountryChange={setPhoneCountry} style={styles.phoneInput} />
                 ) : (
                   <View style={styles.inputBox}>
                     <Feather name="key" size={18} color={V.gold} style={{marginRight: 12}} />
-                    <TextInput style={styles.input} placeholder={`Sua chave ${pixType}`} placeholderTextColor={V.muted} />
+                    <TextInput style={styles.input} placeholder={t('Sua chave {type}', { type: t(pixType) })} placeholderTextColor={V.muted} />
                   </View>
                 )}
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>VALOR (USDT)</Text>
+                <Text style={styles.label}>{t('VALOR (USDT)')}</Text>
                 <View style={styles.inputBox}>
                   <Feather name="dollar-sign" size={18} color={V.gold} style={{marginRight: 12}} />
                   <TextInput style={styles.input} placeholder="0.00" placeholderTextColor={V.muted} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} />
@@ -113,12 +115,12 @@ export default function SacarScreen() {
 
               <View style={styles.alert}>
                  <Feather name="clock" size={18} color={V.gold} />
-                 <Text style={styles.alertT}>Processamento em até 24h úteis. Uma taxa administrativa de $0.50 ou 2% será aplicada, além da taxa de conversão conforme cotação do momento.</Text>
+                 <Text style={styles.alertT}>{t('Processamento em até 24h úteis. Uma taxa administrativa de $0.50 ou 2% será aplicada, além da taxa de conversão conforme cotação do momento.')}</Text>
               </View>
 
               <TouchableOpacity style={styles.mainBtn}>
                 <MaterialCommunityIcons name="bank-transfer-out" size={22} color={V.bg} />
-                <Text style={styles.mainBtnT}>SOLICITAR SAQUE</Text>
+                <Text style={styles.mainBtnT}>{t('SOLICITAR SAQUE')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

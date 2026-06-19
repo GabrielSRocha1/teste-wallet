@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Modal, SafeAreaVie
 import { Feather } from '@expo/vector-icons';
 import { countries, Country } from '@/constants/countries';
 import { V, F } from '@/constants/theme';
+import { useSettings } from '@/constants/SettingsContext';
 
 interface PhoneInputProps extends TextInputProps {
   value: string;
@@ -21,6 +22,7 @@ export default function PhoneInput({
   style,
   ...props 
 }: PhoneInputProps) {
+  const { t } = useSettings();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<Country>(propCountry || countries[0]);
 
@@ -64,7 +66,7 @@ export default function PhoneInput({
         <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>SELECIONE O PAÍS</Text>
+              <Text style={styles.modalTitle}>{t('SELECIONE O PAÍS')}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
                 <Feather name="x" size={24} color={V.gold} />
               </TouchableOpacity>

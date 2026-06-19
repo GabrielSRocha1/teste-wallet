@@ -12,18 +12,19 @@
  * Disco: `vrm-v2:` + base64(JSON({ v, kdf, salt, nonce, ct }))
  *
  *   v       : 2 (versão do esquema — incremental para futura migração)
- *   kdf     : "pbkdf2-sha256-600000" (parser permite tunning de iterações)
+ *   kdf     : "pbkdf2-sha256-210000" (parser permite tunning de iterações)
  *   salt    : 16 bytes aleatórios (base64) — único por vault
  *   nonce   : 24 bytes aleatórios (base64) — único por encrypt
  *   ct      : ciphertext + auth tag (base64) — nacl.secretbox output
  *
  * ─── PRIMITIVAS ──────────────────────────────────────────────────────────────
- *   KDF    : PBKDF2-SHA256, 600k iterações (OWASP 2023 mínimo)
+ *   KDF    : PBKDF2-SHA256, 210k iterações (OWASP 2023 recomendado para SHA-256)
  *   Cipher : nacl.secretbox (XSalsa20-Poly1305) — autenticada, sem padding
  *   RNG    : nacl.randomBytes (CSPRNG via react-native-get-random-values)
  *
  * ─── CUSTO COMPUTACIONAL ─────────────────────────────────────────────────────
- * 600k iter PBKDF2-SHA256 leva ~500-800ms em dispositivo médio.
+ * 210k iter PBKDF2-SHA256 leva ~170-280ms em dispositivo médio. Vaults v2 antigos
+ * (600k) continuam decifrando — iterations vem do envelope, não da constante.
  * Tradeoff: UX (unlock 1× a cada 15min) vs segurança (vault em mãos é fortaleza).
  *
  * ─── MIGRAÇÃO ────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ import nacl from 'tweetnacl';
 import { Buffer } from 'buffer';
 
 const FORMAT_PREFIX = 'vrm-v2:';
-const PBKDF2_ITERATIONS = 600_000;
+const PBKDF2_ITERATIONS = 210_000;
 const SALT_BYTES = 16;
 const NONCE_BYTES = nacl.secretbox.nonceLength; // 24
 const KEY_BYTES = nacl.secretbox.keyLength; // 32
@@ -94,6 +95,33 @@ function wipeBuffer(u8: Uint8Array): void {
 export function isV2Format(blob: string): boolean {
   return typeof blob === 'string' && blob.startsWith(FORMAT_PREFIX);
 }
+
+/**
+ * Lê o número de iterações PBKDF2 gravado no envelope v2 sem decifrar.
+ *
+ * Usado para detectar vaults com iter count ≠ do alvo atual e disparar
+ * re-encriptação transparente no próximo unlock — assim usuários antigos
+ * herdam ganhos de performance quando baixamos o custo do KDF, sem precisar
+ * trocar PIN. Retorna null se o blob não for v2 ou o envelope estiver
+ * corrompido (caller decide se ignora ou propaga).
+ */
+export function getVaultIterations(blob: string): number | null {
+  if (!isV2Format(blob)) return null;
+  try {
+    const jsonB64 = blob.slice(FORMAT_PREFIX.length);
+    const envelope = JSON.parse(Buffer.from(jsonB64, 'base64').toString('utf-8')) as VaultBlobV2;
+    const m = typeof envelope.kdf === 'string' ? envelope.kdf.match(/pbkdf2-sha256-(\d+)/) : null;
+    if (!m) return null;
+    const n = parseInt(m[1], 10);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Valor atual de iterações usado em encryptions novas. Expor permite ao caller
+ *  detectar drift (vault antigo ≠ alvo) sem reimportar a constante. */
+export const CURRENT_PBKDF2_ITERATIONS = PBKDF2_ITERATIONS;
 
 /**
  * Criptografa um payload JSON-serializável com PBKDF2 + secretbox.

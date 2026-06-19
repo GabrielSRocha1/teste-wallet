@@ -425,7 +425,7 @@ export default function ContratarVestingScreen() {
         const ms = transactionService.getTokenMints();
         const mint = ms[paymentCurrency];
         const meta = transactionService.getTokenMeta(paymentCurrency);
-        if (!mint || !meta) throw new Error('Token data not found');
+        if (!mint || !meta) throw new Error(t('Token data not found'));
 
         tx = await transactionService.buildSPLTransfer({
           from: userWallet,

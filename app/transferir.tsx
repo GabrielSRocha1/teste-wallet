@@ -440,14 +440,14 @@ export default function TransferirScreen() {
     try {
       setLoadingStep(t('Validando destinatário...'));
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      if (!user) throw new Error(t('Não autenticado'));
 
       // Usa os dados já resolvidos na fase de simulação
       const destAddress = resolvedDestAddr;
       const destUserId = resolvedDestUserId;
       const destEmail = resolvedDestEmail;
 
-      if (!senderWallet) throw new Error('Endereço da carteira do remetente não encontrado.');
+      if (!senderWallet) throw new Error(t('Endereço da carteira do remetente não encontrado.'));
 
       const grossAmount = parseFloat(amount);
       const platformFeeAmount = +(grossAmount * VERUM_FEE_PCT).toFixed(9);
@@ -456,7 +456,7 @@ export default function TransferirScreen() {
 
       // Sign + Broadcast usando o preview já simulado
       setLoadingStep(t('Assinando e enviando para a rede...'));
-      if (!preview) throw new Error('Dados de simulação perdidos. Tente novamente.');
+      if (!preview) throw new Error(t('Dados de simulação perdidos. Tente novamente.'));
       const result = await signAndSend(preview.transaction, signerKeypair);
       
       // Se não há resultado ou se o status falhou e NÃO temos hash, é erro real
@@ -627,7 +627,7 @@ export default function TransferirScreen() {
               <View style={styles.card}>
                 {/* Destinatário */}
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, errors.destinatario && { color: V.danger }]}>DESTINATÁRIO</Text>
+                  <Text style={[styles.label, errors.destinatario && { color: V.danger }]}>{t('DESTINATÁRIO')}</Text>
                   <View style={[styles.inputWrapper, errors.destinatario && { borderColor: V.danger, borderWidth: 1 }]}>
                     <Feather name="user" size={18} color={errors.destinatario ? V.danger : V.gold} style={styles.inputIcon} />
                     <TextInput
@@ -648,7 +648,7 @@ export default function TransferirScreen() {
                 {/* Moeda + Valor */}
                 <View style={[styles.row, isCurrencyDropdownOpen && { zIndex: 1000, elevation: 10 }]}>
                   <View style={[styles.inputGroup, { flex: 3, marginRight: 12 }, isCurrencyDropdownOpen && { zIndex: 1000 }]}>
-                    <Text style={styles.label}>MOEDA</Text>
+                    <Text style={styles.label}>{t('MOEDA')}</Text>
                     <TouchableOpacity style={styles.dropdown} onPress={() => setCurrencyDropdownOpen(!isCurrencyDropdownOpen)}>
                       <Text style={styles.dropdownText}>{currency}</Text>
                       <Feather name="chevron-down" size={18} color={V.gold} />
@@ -665,7 +665,7 @@ export default function TransferirScreen() {
                   </View>
 
                   <View style={[styles.inputGroup, { flex: 7 }]}>
-                    <Text style={[styles.label, errors.amount && { color: V.danger }]}>VALOR</Text>
+                    <Text style={[styles.label, errors.amount && { color: V.danger }]}>{t('VALOR')}</Text>
                     <View style={[styles.inputWrapper, errors.amount && { borderColor: V.danger, borderWidth: 1 }]}>
                       <TextInput
                         style={[styles.input, styles.valueInput, { paddingRight: 68 }]}
@@ -681,7 +681,7 @@ export default function TransferirScreen() {
                         }}
                       />
                       <TouchableOpacity onPress={handleMaxPress} style={styles.maxBtnInside} activeOpacity={0.7}>
-                        <Text style={styles.maxBtnInsideText}>MÁX</Text>
+                        <Text style={styles.maxBtnInsideText}>{t('MÁX')}</Text>
                       </TouchableOpacity>
                     </View>
                     <View style={styles.valueMeta}>
@@ -707,23 +707,23 @@ export default function TransferirScreen() {
                   <View style={styles.feeSection}>
                     <View style={styles.feeSectionHeader}>
                       <Feather name="layers" size={13} color={V.gold} />
-                      <Text style={styles.feeSectionTitle}>TAXAS</Text>
-                      <Text style={styles.feeSectionHint}>(toque  ⓘ  para ver o valor)</Text>
+                      <Text style={styles.feeSectionTitle}>{t('TAXAS')}</Text>
+                      <Text style={styles.feeSectionHint}>{t('(toque  ⓘ  para ver o valor)')}</Text>
                     </View>
 
                     <FeeRow
-                      label="Taxa Fee"
-                      value={`${platformFeeValue.toFixed(currency === 'USDT' ? 4 : 6)} ${currency}\n≈ taxa adicional de 2%`}
+                      label={t('Taxa Fee')}
+                      value={`${platformFeeValue.toFixed(currency === 'USDT' ? 4 : 6)} ${currency}\n${t('≈ taxa adicional de 2%')}`}
                     />
 
                     <FeeRow
-                      label="Taxa de Rede Solana"
+                      label={t('Taxa de Rede Solana')}
                       value={`≈ ${networkFeeSol.toFixed(6)} SOL\n≈ $${networkFeeUsd.toFixed(6)}`}
                     />
 
                     <View style={styles.feeDivider} />
                     <View style={styles.feeNetRow}>
-                      <Text style={styles.feeNetLabel}>Destinatário receberá</Text>
+                      <Text style={styles.feeNetLabel}>{t('Destinatário receberá')}</Text>
                       <Text style={styles.feeNetValue}>
                         {currency === 'SOL'
                           ? `${amountNum.toFixed(6)} SOL`
@@ -841,7 +841,7 @@ export default function TransferirScreen() {
               </Text>
               {txHash && !error && (
                 <View style={{ backgroundColor: 'rgba(201,168,76,0.05)', padding: 12, borderRadius: 8, width: '100%', marginBottom: 24 }}>
-                  <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4, textAlign: 'center' }}>HASH DA TRANSAÇÃO</Text>
+                  <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4, textAlign: 'center' }}>{t('HASH DA TRANSAÇÃO')}</Text>
                   <Text style={{ fontSize: 10, color: V.gold, textAlign: 'center', fontFamily: F.semi }} numberOfLines={1} ellipsizeMode="middle">
                     {txHash}
                   </Text>

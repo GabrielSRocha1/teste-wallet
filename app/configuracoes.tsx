@@ -12,6 +12,8 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { V, F } from '@/constants/theme';
 import { useSettings } from '@/constants/SettingsContext';
+import { SUPPORTED_LANGUAGES, getLanguageOption } from '@/constants/languages';
+import { SUPPORTED_CURRENCIES, getCurrencyOption } from '@/constants/currencies';
 import PasswordModal from '@/components/PasswordModal';
 import keyManager from '@/src/services/keyManager';
 import transactionService from '@/src/services/transactionService';
@@ -30,10 +32,12 @@ export default function ConfiguracoesScreen() {
   const [showToast, setShowToast] = useState(false);
   const [userData, setUserData] = useState({ email: '', telefone: '', id: '' });
   const [isUserModalVisible, setIsUserModalVisible] = useState(false);
+  const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
+  const [isCurrencyModalVisible, setIsCurrencyModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<'email' | 'telefone' | 'walletName' | null>(null);
   const [editValue, setEditValue] = useState('');
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const { language, currency, network, setLanguage, setCurrency, setNetwork, t, walletName, setWalletName } = useSettings();
+  const { language, currency, setLanguage, setCurrency, t, walletName, setWalletName } = useSettings();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -78,19 +82,16 @@ export default function ConfiguracoesScreen() {
     }, 3000);
   };
 
-  const handleNetworkChange = (newNet: 'mainnet' | 'devnet') => {
-    setNetwork(newNet);
-    showCustomToast(`Rede alterada para ${newNet === 'mainnet' ? 'Mainnet' : 'Devnet'}`);
-  };
-
   const handleLanguageChange = (lang: any, langName: string) => {
     setLanguage(lang);
-    showCustomToast(`Idioma alterado para ${langName}`);
+    setIsLanguageModalVisible(false);
+    showCustomToast(`${t('Idioma')}: ${langName}`);
   };
 
   const handleCurrencyChange = (curr: any, currName: string) => {
     setCurrency(curr);
-    showCustomToast(`Moeda alterada para ${currName}`);
+    setIsCurrencyModalVisible(false);
+    showCustomToast(`${t('Moeda')}: ${currName}`);
   };
 
   const handleUpdateUser = async () => {
@@ -160,26 +161,17 @@ export default function ConfiguracoesScreen() {
                   <Feather name="globe" size={16} color={V.gold} />
                   <Text style={styles.rowText}>{t('Idioma')}</Text>
                </View>
-               <View style={styles.optionsRow}>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, language === 'en' && styles.optBtnActive]} 
-                    onPress={() => handleLanguageChange('en', 'Inglês')}
-                  >
-                    <Text style={[styles.optText, language === 'en' && styles.optTextActive]}>{t('Inglês')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, language === 'es' && styles.optBtnActive]} 
-                    onPress={() => handleLanguageChange('es', 'Espanhol')}
-                  >
-                    <Text style={[styles.optText, language === 'es' && styles.optTextActive]}>{t('Espanhol')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, language === 'pt' && styles.optBtnActive]} 
-                    onPress={() => handleLanguageChange('pt', 'Português')}
-                  >
-                    <Text style={[styles.optText, language === 'pt' && styles.optTextActive]}>{t('Português')}</Text>
-                  </TouchableOpacity>
-               </View>
+               <TouchableOpacity
+                 style={styles.langDropdown}
+                 onPress={() => setIsLanguageModalVisible(true)}
+                 activeOpacity={0.8}
+               >
+                 <View style={styles.langDropdownLeft}>
+                   <Text style={styles.langDropdownFlag}>{getLanguageOption(language).flag}</Text>
+                   <Text style={styles.langDropdownText}>{getLanguageOption(language).nativeName}</Text>
+                 </View>
+                 <Feather name="chevron-down" size={18} color={V.gold} />
+               </TouchableOpacity>
             </View>
 
             <View style={styles.divider} />
@@ -189,50 +181,21 @@ export default function ConfiguracoesScreen() {
                   <Feather name="dollar-sign" size={16} color={V.gold} />
                   <Text style={styles.rowText}>{t('Moeda')}</Text>
                </View>
-               <View style={styles.optionsRow}>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, currency === 'USD' && styles.optBtnActive]} 
-                    onPress={() => handleCurrencyChange('USD', 'Dólar Americano')}
-                  >
-                    <Text style={[styles.optText, currency === 'USD' && styles.optTextActive]}>{t('Dólar Americano')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, currency === 'PYG' && styles.optBtnActive]} 
-                    onPress={() => handleCurrencyChange('PYG', 'Guarani Paraguaio')}
-                  >
-                    <Text style={[styles.optText, currency === 'PYG' && styles.optTextActive]}>{t('Guarani Paraguaio')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.optBtn, currency === 'BRL' && styles.optBtnActive]} 
-                    onPress={() => handleCurrencyChange('BRL', 'Real Brasileiro')}
-                  >
-                    <Text style={[styles.optText, currency === 'BRL' && styles.optTextActive]}>{t('Real Brasileiro')}</Text>
-                   </TouchableOpacity>
-                </View>
+               <TouchableOpacity
+                 style={styles.langDropdown}
+                 onPress={() => setIsCurrencyModalVisible(true)}
+                 activeOpacity={0.8}
+               >
+                 <View style={styles.langDropdownLeft}>
+                   <Text style={styles.langDropdownFlag}>{getCurrencyOption(currency).flag}</Text>
+                   <Text style={styles.langDropdownText}>
+                     {getCurrencyOption(currency).code} — {getCurrencyOption(currency).nativeName}
+                   </Text>
+                 </View>
+                 <Feather name="chevron-down" size={18} color={V.gold} />
+               </TouchableOpacity>
              </View>
 
-             <View style={styles.divider} />
-
-             <View style={styles.settingItem}>
-                <View style={styles.settingHeader}>
-                   <Feather name="server" size={16} color={V.gold} />
-                   <Text style={styles.rowText}>{t('Rede Solana')}</Text>
-                </View>
-                <View style={styles.optionsRow}>
-                   <TouchableOpacity 
-                     style={[styles.optBtn, network === 'mainnet' && styles.optBtnActive]} 
-                     onPress={() => handleNetworkChange('mainnet')}
-                   >
-                     <Text style={[styles.optText, network === 'mainnet' && styles.optTextActive]}>Mainnet ({t('Principal')})</Text>
-                   </TouchableOpacity>
-                   <TouchableOpacity 
-                     style={[styles.optBtn, network === 'devnet' && styles.optBtnActive]} 
-                     onPress={() => handleNetworkChange('devnet')}
-                   >
-                     <Text style={[styles.optText, network === 'devnet' && styles.optTextActive]}>Devnet ({t('Teste')})</Text>
-                   </TouchableOpacity>
-                </View>
-             </View>
           </View>
         </View>
 
@@ -479,6 +442,86 @@ export default function ConfiguracoesScreen() {
       />
 
       <Modal
+        visible={isLanguageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsLanguageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.langModalContent}>
+            <View style={styles.langModalHeader}>
+              <Text style={styles.modalTitle}>{t('Idioma').toUpperCase()}</Text>
+              <TouchableOpacity onPress={() => setIsLanguageModalVisible(false)}>
+                <Feather name="x" size={22} color={V.gold} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.langList} showsVerticalScrollIndicator={false}>
+              {SUPPORTED_LANGUAGES.map(lang => {
+                const isActive = language === lang.code;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[styles.langItem, isActive && styles.langItemActive]}
+                    onPress={() => handleLanguageChange(lang.code, lang.nativeName)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.langItemFlag}>{lang.flag}</Text>
+                    <View style={styles.langItemTexts}>
+                      <Text style={[styles.langItemName, isActive && styles.langItemNameActive]}>
+                        {lang.nativeName}
+                      </Text>
+                      <Text style={styles.langItemEnglishName}>{lang.englishName}</Text>
+                    </View>
+                    {isActive && <Feather name="check" size={18} color={V.gold} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isCurrencyModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCurrencyModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.langModalContent}>
+            <View style={styles.langModalHeader}>
+              <Text style={styles.modalTitle}>{t('Moeda').toUpperCase()}</Text>
+              <TouchableOpacity onPress={() => setIsCurrencyModalVisible(false)}>
+                <Feather name="x" size={22} color={V.gold} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.langList} showsVerticalScrollIndicator={false}>
+              {SUPPORTED_CURRENCIES.map(cur => {
+                const isActive = currency === cur.code;
+                return (
+                  <TouchableOpacity
+                    key={cur.code}
+                    style={[styles.langItem, isActive && styles.langItemActive]}
+                    onPress={() => handleCurrencyChange(cur.code, cur.nativeName)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.langItemFlag}>{cur.flag}</Text>
+                    <View style={styles.langItemTexts}>
+                      <Text style={[styles.langItemName, isActive && styles.langItemNameActive]}>
+                        {cur.code} — {cur.nativeName}
+                      </Text>
+                      <Text style={styles.langItemEnglishName}>{cur.englishName}</Text>
+                    </View>
+                    {isActive && <Feather name="check" size={18} color={V.gold} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={isUserModalVisible}
         transparent
         animationType="fade"
@@ -615,4 +658,61 @@ const styles = StyleSheet.create({
   modalBtnCancel: { flex: 1, height: 50, borderRadius: V.r8, alignItems: 'center', justifyContent: 'center', backgroundColor: V.surface2, borderWidth: 1, borderColor: V.border },
   modalBtnSave: { flex: 2, height: 50, borderRadius: V.r8, alignItems: 'center', justifyContent: 'center', backgroundColor: V.gold },
   modalBtnText: { fontFamily: F.bold, fontSize: 14 },
+
+  langDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: V.surface2,
+    borderRadius: V.r8,
+    borderWidth: 1,
+    borderColor: V.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  langDropdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  langDropdownFlag: { fontSize: 22 },
+  langDropdownText: { fontSize: 14, fontFamily: F.semi, color: V.text },
+
+  langModalContent: {
+    backgroundColor: V.surface1,
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderWidth: 1,
+    borderColor: V.border,
+    ...V.shadow,
+  },
+  langModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  langList: { flexGrow: 0 },
+  langItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: V.r8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 6,
+  },
+  langItemActive: {
+    backgroundColor: 'rgba(201,168,76,0.1)',
+    borderColor: 'rgba(201,168,76,0.5)',
+  },
+  langItemFlag: { fontSize: 26 },
+  langItemTexts: { flex: 1 },
+  langItemName: { fontSize: 15, fontFamily: F.semi, color: V.text },
+  langItemNameActive: { color: V.gold },
+  langItemEnglishName: { fontSize: 12, fontFamily: F.body, color: V.muted, marginTop: 2 },
 });

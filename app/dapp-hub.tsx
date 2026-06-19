@@ -26,6 +26,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { V, F }  from '@/constants/theme';
 import { connectionService, ConnectedSession } from '@/src/services/connectionService';
+import { useSettings } from '@/constants/SettingsContext';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,7 @@ function CategoryPill({ category, active, onPress }: {
   active: boolean;
   onPress: () => void;
 }) {
+  const { t } = useSettings();
   const meta = category === 'all'
     ? { label: 'Todos', icon: 'compass', color: V.gold }
     : CATEGORY_META[category];
@@ -243,13 +245,14 @@ function CategoryPill({ category, active, onPress }: {
       onPress={onPress}
     >
       <Feather name={meta.icon as any} size={14} color={active ? V.bg : meta.color} />
-      <Text style={[pill.text, active && pill.textActive]}>{meta.label}</Text>
+      <Text style={[pill.text, active && pill.textActive]}>{t(meta.label)}</Text>
     </TouchableOpacity>
   );
 }
 
 function DAppCard({ dapp, onPress }: { dapp: DApp; onPress: () => void }) {
   const meta = CATEGORY_META[dapp.category];
+  const { t } = useSettings();
 
   return (
     <TouchableOpacity style={card.container} onPress={onPress} activeOpacity={0.7}>
@@ -258,10 +261,10 @@ function DAppCard({ dapp, onPress }: { dapp: DApp; onPress: () => void }) {
       </View>
       <View style={card.info}>
         <Text style={card.name} numberOfLines={1}>{dapp.name}</Text>
-        <Text style={card.desc} numberOfLines={1}>{dapp.description}</Text>
+        <Text style={card.desc} numberOfLines={1}>{t(dapp.description)}</Text>
       </View>
       <View style={[card.badge, { borderColor: meta.color + '30' }]}>
-        <Text style={[card.badgeText, { color: meta.color }]}>{meta.label}</Text>
+        <Text style={[card.badgeText, { color: meta.color }]}>{t(meta.label)}</Text>
       </View>
       <Feather name="chevron-right" size={16} color={V.muted} />
     </TouchableOpacity>
@@ -287,6 +290,7 @@ function RecentSessionCard({ session, onPress }: { session: ConnectedSession; on
 
 export default function DAppHubScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
   const [searchText, setSearchText]           = useState('');
   const [activeCategory, setActiveCategory]   = useState<DAppCategory | 'all'>('all');
   const [recentSessions, setRecentSessions]   = useState<ConnectedSession[]>([]);
@@ -338,7 +342,7 @@ export default function DAppHubScreen() {
         </TouchableOpacity>
         <View style={s.urlBar}>
           <Feather name="compass" size={14} color={V.muted} />
-          <Text style={s.urlText}>Explorar dApps</Text>
+          <Text style={s.urlText}>{t('Explorar dApps')}</Text>
         </View>
       </View>
 
@@ -356,7 +360,7 @@ export default function DAppHubScreen() {
               value={searchText}
               onChangeText={setSearchText}
               onSubmitEditing={handleUrlSubmit}
-              placeholder="Pesquisar dApp ou digitar URL..."
+              placeholder={t('Pesquisar dApp ou digitar URL...')}
               placeholderTextColor={V.muted}
               autoCapitalize="none"
               autoCorrect={false}
@@ -380,9 +384,9 @@ export default function DAppHubScreen() {
         {recentSessions.length > 0 && !searchText && (
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>RECENTES</Text>
+              <Text style={s.sectionTitle}>{t('RECENTES')}</Text>
               <TouchableOpacity onPress={() => router.push('/connected-apps' as any)}>
-                <Text style={s.sectionLink}>Ver todos</Text>
+                <Text style={s.sectionLink}>{t('Ver todos')}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.recentScroll}>
@@ -420,10 +424,9 @@ export default function DAppHubScreen() {
                 <Feather name="shield" size={24} color={V.gold} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.bannerTitle}>Navegação Segura</Text>
+                <Text style={s.bannerTitle}>{t('Navegação Segura')}</Text>
                 <Text style={s.bannerDesc}>
-                  Todos os dApps abrem com a Verum Wallet injetada automaticamente.
-                  Suas chaves nunca saem do dispositivo.
+                  {t('Todos os dApps abrem com a Verum Wallet injetada automaticamente. Suas chaves nunca saem do dispositivo.')}
                 </Text>
               </View>
             </View>
@@ -441,9 +444,9 @@ export default function DAppHubScreen() {
                 <Feather name="star" size={24} color={V.gold} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.bannerTitle}>Ecossistema Verum</Text>
+                <Text style={s.bannerTitle}>{t('Ecossistema Verum')}</Text>
                 <Text style={s.bannerDesc}>
-                  Acesse os portais de vesting dos tokens Verum Crypto com sua carteira conectada automaticamente.
+                  {t('Acesse os portais de vesting dos tokens Verum Crypto com sua carteira conectada automaticamente.')}
                 </Text>
               </View>
             </View>
@@ -453,16 +456,16 @@ export default function DAppHubScreen() {
         {/* ── Lista de dApps ──────────────────────────────────────────────── */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>
-            {activeCategory === 'all' ? 'POPULARES' : CATEGORY_META[activeCategory].label.toUpperCase()}
+            {activeCategory === 'all' ? t('POPULARES') : t(CATEGORY_META[activeCategory].label).toUpperCase()}
           </Text>
           {filteredDapps.length === 0 ? (
             <View style={s.emptySearch}>
               <Feather name="search" size={32} color={V.muted + '40'} />
-              <Text style={s.emptySearchText}>Nenhum dApp encontrado</Text>
+              <Text style={s.emptySearchText}>{t('Nenhum dApp encontrado')}</Text>
               {isValidUrl(searchText) && (
                 <TouchableOpacity style={s.openUrlBtn} onPress={handleUrlSubmit}>
                   <Feather name="external-link" size={14} color={V.gold} />
-                  <Text style={s.openUrlText}>Abrir como URL</Text>
+                  <Text style={s.openUrlText}>{t('Abrir como URL')}</Text>
                 </TouchableOpacity>
               )}
             </View>

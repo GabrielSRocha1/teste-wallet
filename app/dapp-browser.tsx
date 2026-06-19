@@ -145,6 +145,7 @@ interface PermissionModalProps {
 
 
 function PermissionModal({ request, publicKey, network, dappName, onApprove, onReject, visible }: PermissionModalProps) {
+  const { t } = useSettings();
   const isVisible = visible !== undefined ? visible : !!request;
   if (!request || !isVisible) return null;
 
@@ -205,7 +206,7 @@ function PermissionModal({ request, publicKey, network, dappName, onApprove, onR
             <View style={[modal.headerIcon, { backgroundColor: isHighRisk ? V.danger + '20' : V.gold + '20' }]}>
               <Feather name={icon as any} size={18} color={isHighRisk ? V.danger : V.gold} />
             </View>
-            <Text style={modal.headerTitle}>{title}</Text>
+            <Text style={modal.headerTitle}>{t(title)}</Text>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
@@ -248,14 +249,14 @@ function PermissionModal({ request, publicKey, network, dappName, onApprove, onR
                 <Feather name={icon as any} size={16} color={isHighRisk ? V.danger : V.success} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={modal.operationLabel}>{subtitle}</Text>
+                <Text style={modal.operationLabel}>{t(subtitle)}</Text>
                 {request.txCount && request.txCount > 1 && (
-                  <Text style={modal.operationSub}>{request.txCount} transações no total</Text>
+                  <Text style={modal.operationSub}>{t('{n} transações no total', { n: String(request.txCount) })}</Text>
                 )}
               </View>
               {riskLabel && (
                 <View style={[modal.riskBadge, { borderColor: V.danger + '40', backgroundColor: V.danger + '15' }]}>
-                  <Text style={[modal.riskBadgeText, { color: V.danger }]}>{riskLabel}</Text>
+                  <Text style={[modal.riskBadgeText, { color: V.danger }]}>{t(riskLabel)}</Text>
                 </View>
               )}
             </View>
@@ -265,15 +266,15 @@ function PermissionModal({ request, publicKey, network, dappName, onApprove, onR
               <View style={modal.riskAlert}>
                 <Feather name="alert-triangle" size={14} color={V.danger} />
                 <Text style={modal.riskAlertText}>
-                  Verifique a origem antes de assinar. Transações assinadas são irreversíveis na blockchain.
+                  {t('Verifique a origem antes de assinar. Transações assinadas são irreversíveis na blockchain.')}
                 </Text>
               </View>
             )}
 
             <Text style={modal.legal}>
-              Sua chave privada{' '}
-              <Text style={{ color: V.danger }}>nunca</Text>{' '}
-              é compartilhada com o dApp.
+              {t('Sua chave privada')}{' '}
+              <Text style={{ color: V.danger }}>{t('nunca')}</Text>{' '}
+              {t('é compartilhada com o dApp.')}
             </Text>
           </ScrollView>
 
@@ -281,17 +282,17 @@ function PermissionModal({ request, publicKey, network, dappName, onApprove, onR
           <View style={modal.actions}>
             {!publicKey && request.type === 'connect' ? (
               <TouchableOpacity style={s.btnPrimary} onPress={onApprove}>
-                <Text style={s.btnPrimaryText}>DESBLOQUEAR E CONECTAR</Text>
+                <Text style={s.btnPrimaryText}>{t('DESBLOQUEAR E CONECTAR')}</Text>
               </TouchableOpacity>
             ) : (
               <SwipeToConfirm
                 onConfirm={onApprove}
-                label={isSignAction ? 'Deslize para assinar' : 'Deslize para conectar'}
+                label={isSignAction ? t('Deslize para assinar') : t('Deslize para conectar')}
                 accentColor={isHighRisk ? V.danger : V.gold}
               />
             )}
             <TouchableOpacity style={modal.rejectBtn} onPress={onReject}>
-              <Text style={modal.rejectText}>Recusar</Text>
+              <Text style={modal.rejectText}>{t('Recusar')}</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -384,7 +385,7 @@ function BrowserWebView({ uri, webViewRef, onMessage, injectionScript, onNavigat
 export default function DAppBrowserScreen() {
   const insets   = useSafeAreaInsets();
   const params   = useLocalSearchParams<{ url?: string; name?: string }>();
-  const { network } = useSettings();
+  const { network, t } = useSettings();
 
   const initialUrl  = params.url ? decodeURIComponent(params.url) : '';
   const dappName    = params.name ? decodeURIComponent(params.name) : extractHostname(initialUrl);
@@ -709,7 +710,7 @@ export default function DAppBrowserScreen() {
       setUnlockVisible(false);
       setTimeout(() => handleApprove(pkStr), 100);
     } catch (err: any) {
-      setError('Senha incorreta. Tente novamente.');
+      setError(t('Senha incorreta. Tente novamente.'));
     } finally {
       setUnlocking(false);
     }
@@ -772,7 +773,7 @@ export default function DAppBrowserScreen() {
             onFocus={() => setUrlFocused(true)}
             onBlur={() => setUrlFocused(false)}
             onSubmitEditing={() => navigateTo(urlInput)}
-            placeholder="Pesquisar ou digitar URL"
+            placeholder={t('Pesquisar ou digitar URL')}
             placeholderTextColor={V.muted}
             autoCapitalize="none"
             autoCorrect={false}
@@ -802,7 +803,7 @@ export default function DAppBrowserScreen() {
             <View style={s.statusDot} />
             <Feather name="shield" size={11} color={V.success} />
             <Text style={s.statusText}>
-              CONECTADA <Text style={s.statusAddr}>({typeof publicKey === 'string' ? `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}` : ''})</Text>
+              {t('CONECTADA')} <Text style={s.statusAddr}>({typeof publicKey === 'string' ? `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}` : ''})</Text>
             </Text>
           </View>
           <View style={s.statusBadge}>
@@ -825,10 +826,10 @@ export default function DAppBrowserScreen() {
       ) : (
         <View style={s.emptyState}>
           <Feather name="compass" size={48} color={V.gold + '60'} />
-          <Text style={s.emptyTitle}>Explorar dApps</Text>
+          <Text style={s.emptyTitle}>{t('Explorar dApps')}</Text>
           <Text style={s.emptyDesc}>
-            Digite a URL de qualquer dApp Solana na barra acima.{'\n'}
-            A Verum Wallet será injetada automaticamente.
+            {t('Digite a URL de qualquer dApp Solana na barra acima.')}{'\n'}
+            {t('A Verum Wallet será injetada automaticamente.')}
           </Text>
         </View>
       )}
@@ -849,8 +850,8 @@ export default function DAppBrowserScreen() {
         onClose={() => { setUnlockVisible(false); setError(null); }}
         onConfirm={handleUnlock}
         loading={isUnlocking}
-        title="DESBLOQUEAR CARTEIRA"
-        description="Digite seu PIN/Senha para conectar ao dApp."
+        title={t('DESBLOQUEAR CARTEIRA')}
+        description={t('Digite seu PIN/Senha para conectar ao dApp.')}
         errorMessage={error || undefined}
       />
     </View>

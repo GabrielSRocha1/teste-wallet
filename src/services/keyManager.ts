@@ -17,7 +17,13 @@ import {
   validateMnemonic,
   type DerivedWallet,
 } from './keyDerivation';
-import { encryptVault, decryptVault, isV2Format } from './_internal/vault-crypto';
+import {
+  encryptVault,
+  decryptVault,
+  isV2Format,
+  getVaultIterations,
+  CURRENT_PBKDF2_ITERATIONS,
+} from './_internal/vault-crypto';
 import { createLogger } from './_internal/logger';
 import {
   PinRateLimiter,
@@ -601,6 +607,28 @@ class KeyManager {
         const keypair = this._keypairFromHex(data.secretKeyHex, data.publicKey ?? null);
         const mnemonic = typeof data.mnemonic === 'string' ? data.mnemonic : null;
         vaultLog.debug('vault.loaded', { format: 'v2', pub: keypair.publicKey.toBase58().slice(0, 8) });
+
+        // Re-encriptação transparente quando o iter count do envelope difere
+        // do alvo atual (caso típico: usuários antigos com 600k após reduzirmos
+        // pra 210k). Best-effort — falha aqui não bloqueia o unlock, só adia o
+        // ganho de performance pra próximo decrypt. Repassamos `data` inteiro
+        // pra preservar campos opcionais (ex.: evmAddress) que não estão na
+        // tipagem destruturada acima.
+        const envelopeIter = getVaultIterations(encrypted);
+        if (envelopeIter !== null && envelopeIter !== CURRENT_PBKDF2_ITERATIONS) {
+          try {
+            const reencrypted = encryptVault(data, userPin);
+            await storeSet(SECURE_STORE_KEY, reencrypted);
+            vaultLog.info('vault.reencrypted_v2', {
+              from: envelopeIter,
+              to: CURRENT_PBKDF2_ITERATIONS,
+              pub: keypair.publicKey.toBase58().slice(0, 8),
+            });
+          } catch (reencErr: any) {
+            vaultLog.warn('vault.reencrypt_failed', { error: reencErr?.message });
+          }
+        }
+
         return { keypair, mnemonic };
       } catch (err: any) {
         vaultLog.warn('vault.v2_decrypt_failed', { error: err?.message });

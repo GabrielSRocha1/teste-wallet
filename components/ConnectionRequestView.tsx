@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { V, F } from '@/constants/theme';
 import { ConnectionRequest, Permission, PERMISSION_META } from '@/src/services/connectionService';
+import { useSettings } from '@/constants/SettingsContext';
 
 interface ConnectionRequestViewProps {
   request: ConnectionRequest;
@@ -40,9 +41,10 @@ function extractHostname(url: string) {
 }
 
 function PermissionRow({ permission, last }: { permission: string; last: boolean }) {
+  const { t } = useSettings();
   const meta = PERMISSION_META[permission as Permission] || {
     label: permission,
-    description: 'Solicitação de acesso',
+    description: t('Solicitação de acesso'),
     icon: 'lock',
     risk: 'medium',
   };
@@ -56,12 +58,12 @@ function PermissionRow({ permission, last }: { permission: string; last: boolean
         <Feather name={(meta.icon as any) || 'lock'} size={15} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={s.permLabel}>{meta.label}</Text>
-        <Text style={s.permDesc}>{meta.description}</Text>
+        <Text style={s.permLabel}>{t(meta.label)}</Text>
+        <Text style={s.permDesc}>{t(meta.description)}</Text>
       </View>
       {isHigh ? (
         <View style={s.highBadge}>
-          <Text style={s.highBadgeT}>ALTO RISCO</Text>
+          <Text style={s.highBadgeT}>{t('ALTO RISCO')}</Text>
         </View>
       ) : (
         <Feather name="check-circle" size={16} color={iconColor} />
@@ -82,6 +84,7 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
   isReturning,
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useSettings();
   const slideAnim = useRef(new Animated.Value(350)).current;
 
   useEffect(() => {
@@ -129,11 +132,11 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
               )}
             </View>
             <Text style={s.dappName}>{request.name || hostname}</Text>
-            <Text style={s.dappSubtitle}>quer se conectar à sua carteira</Text>
+            <Text style={s.dappSubtitle}>{t('quer se conectar à sua carteira')}</Text>
             {isReturning !== undefined && (
               <View style={[s.returnPill, isReturning ? s.returnPillKnown : s.returnPillNew]}>
                 <Text style={[s.returnPillText, isReturning ? s.returnPillTextKnown : s.returnPillTextNew]}>
-                  {isReturning ? 'RECONECTAR' : 'PRIMEIRA CONEXÃO'}
+                  {isReturning ? t('RECONECTAR') : t('PRIMEIRA CONEXÃO')}
                 </Text>
               </View>
             )}
@@ -157,7 +160,7 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
           </View>
 
           {/* Permissions */}
-          <Text style={s.sectionLabel}>O QUE ESTE SITE IRÁ ACESSAR</Text>
+          <Text style={s.sectionLabel}>{t('O QUE ESTE SITE IRÁ ACESSAR')}</Text>
           <View style={s.permCard}>
             {(request.permissions || ['publicKey']).map((perm, i, arr) => (
               <PermissionRow
@@ -172,7 +175,7 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
             <View style={s.riskAlert}>
               <Feather name="alert-triangle" size={16} color={V.danger} />
               <Text style={s.riskAlertText}>
-                Atenção: Este site solicita permissões de alto risco.
+                {t('Atenção: Este site solicita permissões de alto risco.')}
               </Text>
             </View>
           )}
@@ -191,7 +194,7 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
             onPress={onReject}
             disabled={isApproving}
           >
-            <Text style={s.cancelBtnT}>CANCELAR</Text>
+            <Text style={s.cancelBtnT}>{t('CANCELAR')}</Text>
             {!!timeLeft && timeLeft > 0 && (
               <Text style={s.countdownText}>{timeLeft}s</Text>
             )}
@@ -203,7 +206,7 @@ export const ConnectionRequestView: React.FC<ConnectionRequestViewProps> = ({
             </View>
           ) : (
             <TouchableOpacity style={s.connectBtn} onPress={onApprove}>
-              <Text style={s.connectBtnT}>CONECTAR</Text>
+              <Text style={s.connectBtnT}>{t('CONECTAR')}</Text>
             </TouchableOpacity>
           )}
         </View>

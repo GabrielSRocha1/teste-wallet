@@ -462,11 +462,11 @@ export default function EnviarCryptoScreen() {
   const executeEnvio = async (signerKeypair: Keypair) => {
     setIsLoading(true);
     try {
-      if (!preview) throw new Error('Dados de simulação perdidos. Tente novamente.');
+      if (!preview) throw new Error(t('Dados de simulação perdidos. Tente novamente.'));
 
       setLoadingStep(t('Assinando transação...'));
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      if (!user) throw new Error(t('Não autenticado'));
 
       const amountNum = parseFloat(amount.replace(',', '.'));
       
@@ -515,8 +515,8 @@ export default function EnviarCryptoScreen() {
         const recvUsdStr = price > 0 && recvUsdVal !== '0.00' ? ` (~$ ${recvUsdVal})` : '';
         await notificationService.pushToEmail(destData.email, {
           type: 'recebimento',
-          title: 'Transferência recebida',
-          description: `Você recebeu ${netAmount} ${crypto} de ${senderName}.`,
+          title: t('Transferência recebida'),
+          description: t('Você recebeu {amount} {crypto} de {sender}.', { amount: String(netAmount), crypto, sender: senderName }),
           amount: `+${netAmount}`,
           currency: `${crypto}${recvUsdStr}`,
           data: { hash: result.hash },
@@ -529,8 +529,8 @@ export default function EnviarCryptoScreen() {
       const sentUsdStr = priceSent > 0 && sentUsdVal !== '0.00' ? ` (~$ ${sentUsdVal})` : '';
       await notificationService.pushNotification({
         type: 'pagamento',
-        title: 'Transferência enviada',
-        description: `Você enviou ${amountNum} ${crypto} para ${destDisplay}.`,
+        title: t('Transferência enviada'),
+        description: t('Você enviou {amount} {crypto} para {dest}.', { amount: String(amountNum), crypto, dest: destDisplay }),
         amount: `-${totalAmountWithFee}`,
         currency: `${crypto}${sentUsdStr}`,
         data: { hash: result.hash },
@@ -667,22 +667,22 @@ export default function EnviarCryptoScreen() {
               <View style={styles.feeSection}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                   <Feather name="layers" size={13} color={V.gold} />
-                  <Text style={{ fontSize: 10, fontFamily: F.bold, color: V.gold, letterSpacing: 1, flex: 1 }}>TAXAS</Text>
-                  <Text style={{ fontSize: 9, fontFamily: F.body, color: V.muted, fontStyle: 'italic' }}>(toque ⓘ para ver o valor)</Text>
+                  <Text style={{ fontSize: 10, fontFamily: F.bold, color: V.gold, letterSpacing: 1, flex: 1 }}>{t('TAXAS')}</Text>
+                  <Text style={{ fontSize: 9, fontFamily: F.body, color: V.muted, fontStyle: 'italic' }}>{t('(toque ⓘ para ver o valor)')}</Text>
                 </View>
                 <FeeRow
-                  label="Taxa Verum"
+                  label={t('Taxa Verum')}
                   value={`${(() => {
                     const amt = parseFloat(amount.replace(',', '.'));
                     const price = prices[crypto]?.USD ?? prices[crypto]?.BRL ?? 0;
                     const usdVal = amt * price;
                     const feeUSD = Math.max(0.50, usdVal * 0.02);
                     return price > 0 ? (feeUSD / price).toFixed(6) : '0';
-                  })()} ${crypto}\n≈ regra: MAX($0.50, 2%)`}
+                  })()} ${crypto}\n${t('≈ regra: MAX($0.50, 2%)')}`}
                 />
                 <FeeRow
-                  label="Taxa de Rede Solana"
-                  value={`≈ 0.000005 SOL\n(pago em gas pela rede)`}
+                  label={t('Taxa de Rede Solana')}
+                  value={`≈ 0.000005 SOL\n${t('(pago em gas pela rede)')}`}
                 />
               </View>
             )}
@@ -788,7 +788,7 @@ export default function EnviarCryptoScreen() {
 
              {localTxHash && !txResultError && (
                 <View style={{ backgroundColor: 'rgba(201,168,76,0.05)', padding: 12, borderRadius: 8, width: '100%', marginBottom: 24 }}>
-                  <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4, textAlign: 'center' }}>HASH DA TRANSAÇÃO</Text>
+                  <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4, textAlign: 'center' }}>{t('HASH DA TRANSAÇÃO')}</Text>
                   <Text style={{ fontSize: 10, color: V.gold, textAlign: 'center', fontFamily: F.semi }} numberOfLines={1} ellipsizeMode="middle">
                     {localTxHash}
                   </Text>

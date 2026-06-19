@@ -10,6 +10,7 @@ import keyManager from '@/src/services/keyManager';
 import * as bip39 from 'bip39';
 import * as Clipboard from 'expo-clipboard';
 import { saveUser } from '@/constants/auth-storage';
+import { useSettings } from '@/constants/SettingsContext';
 
 const showAlert = (title: string, message?: string) => {
   if (Platform.OS === 'web') {
@@ -21,7 +22,8 @@ const showAlert = (title: string, message?: string) => {
 
 export default function RecuperarSenhaScreen() {
   const insets = useSafeAreaInsets();
-  
+  const { t } = useSettings();
+
   // Fluxo: 1 = Email -> 2 = Validar OTP -> 3 = Nova Senha e Frase Semente
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function RecuperarSenhaScreen() {
   // Passo 1: Solicitar OTP
   const handleRequestCode = async () => {
     if (!email.trim()) {
-      showAlert('Erro', 'Por favor, informe seu e-mail.');
+      showAlert(t('Erro'), t('Por favor, informe seu e-mail.'));
       return;
     }
     setLoading(true);
@@ -46,7 +48,7 @@ export default function RecuperarSenhaScreen() {
       if (error) throw error;
       setStep(2);
     } catch (error: any) {
-      showAlert('Erro na solicitação', error.message || 'Verifique o e-mail informado.');
+      showAlert(t('Erro na solicitação'), error.message || t('Verifique o e-mail informado.'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export default function RecuperarSenhaScreen() {
   // Passo 2: Validar OTP
   const handleVerifyOtp = async () => {
     if (otpToken.length < 6) {
-      showAlert('Erro', 'Por favor, digite o código de verificação recebido no e-mail.');
+      showAlert(t('Erro'), t('Por favor, digite o código de verificação recebido no e-mail.'));
       return;
     }
     setLoading(true);
@@ -66,11 +68,11 @@ export default function RecuperarSenhaScreen() {
         type: 'recovery',
       });
       if (error) throw error;
-      
+
       // O Supabase loga o usuário automaticamente se o token de recovery for válido
       setStep(3);
     } catch (error: any) {
-      showAlert('Código inválido', 'O código digitado é inválido ou expirou.');
+      showAlert(t('Código inválido'), t('O código digitado é inválido ou expirou.'));
     } finally {
       setLoading(false);
     }
@@ -79,17 +81,17 @@ export default function RecuperarSenhaScreen() {
   // Passo 3: Cadastrar Nova Senha e Re-criptografar a carteira local
   const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
-      showAlert('Erro', 'A nova senha deve ter pelo menos 6 caracteres.');
+      showAlert(t('Erro'), t('A nova senha deve ter pelo menos 6 caracteres.'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert('Erro', 'As senhas não coincidem.');
+      showAlert(t('Erro'), t('As senhas não coincidem.'));
       return;
     }
 
     const mnemonicTrimmed = recoveryMnemonic.trim().toLowerCase();
     if (!mnemonicTrimmed || mnemonicTrimmed.split(/\s+/).length < 12) {
-      showAlert('Erro', 'Frase de recuperação inválida. Deve conter 12 palavras separadas por espaço.');
+      showAlert(t('Erro'), t('Frase de recuperação inválida. Deve conter 12 palavras separadas por espaço.'));
       return;
     }
 
@@ -97,7 +99,7 @@ export default function RecuperarSenhaScreen() {
     try {
       // 1. Valida o mnemonic antes de qualquer efeito colateral (rule #6).
       if (!bip39.validateMnemonic(mnemonicTrimmed, bip39.wordlists.english)) {
-        throw new Error('A frase secreta inserida não é um mnemônico válido.');
+        throw new Error(t('A frase secreta inserida não é um mnemônico válido.'));
       }
 
       // 2. Atualizar Senha no Supabase
@@ -125,11 +127,11 @@ export default function RecuperarSenhaScreen() {
 
       await keyManager.startSession(imported.mnemonic, imported.keypair, newPassword);
 
-      showAlert('Sucesso', 'Sua senha foi redefinida e sua carteira sincronizada!');
+      showAlert(t('Sucesso'), t('Sua senha foi redefinida e sua carteira sincronizada!'));
       router.replace('/' as any);
-      
+
     } catch (error: any) {
-      showAlert('Erro', error.message);
+      showAlert(t('Erro'), error.message);
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,7 @@ export default function RecuperarSenhaScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         
         <View style={[styles.header, { marginTop: insets.top + 20 }]}>
-          <Text style={styles.title}>RECUPERAR SENHA</Text>
+          <Text style={styles.title}>{t('RECUPERAR SENHA')}</Text>
           <TouchableOpacity style={styles.closeBtn} onPress={() => router.replace('/login')}>
             <Feather name="x" size={24} color={V.gold} />
           </TouchableOpacity>
@@ -161,15 +163,15 @@ export default function RecuperarSenhaScreen() {
           {step === 1 && (
             <View style={styles.stepBox}>
               <Text style={styles.subtitle}>
-                Informe seu e-mail cadastrado para receber o código de recuperação.
+                {t('Informe seu e-mail cadastrado para receber o código de recuperação.')}
               </Text>
-              
-              <Text style={styles.label}>E-MAIL</Text>
+
+              <Text style={styles.label}>{t('E-MAIL')}</Text>
               <View style={styles.inputBox}>
                 <Feather name="mail" size={18} color={V.gold} style={{marginRight: 12}} />
                 <TextInput
                   style={styles.input}
-                  placeholder="exemplo@email.com"
+                  placeholder={t('exemplo@email.com')}
                   placeholderTextColor={V.muted}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -179,7 +181,7 @@ export default function RecuperarSenhaScreen() {
               </View>
 
               <TouchableOpacity style={[styles.mainBtn, { marginTop: 40 }]} onPress={handleRequestCode} disabled={loading}>
-                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>SOLICITAR CÓDIGO</Text>}
+                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>{t('SOLICITAR CÓDIGO')}</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -187,10 +189,10 @@ export default function RecuperarSenhaScreen() {
           {step === 2 && (
             <View style={styles.stepBox}>
               <Text style={styles.subtitle}>
-                Foi enviado um código de verificação para {email}. Insira-o abaixo.
+                {t('Foi enviado um código de verificação para {email}. Insira-o abaixo.', { email })}
               </Text>
 
-              <Text style={styles.label}>CÓDIGO DE RECUPERAÇÃO</Text>
+              <Text style={styles.label}>{t('CÓDIGO DE RECUPERAÇÃO')}</Text>
               <View style={[styles.inputBox, { height: 60, borderColor: V.gold }]}>
                 <TextInput
                   style={[styles.input, { textAlign: 'center', fontSize: 24, letterSpacing: 8, color: V.gold, fontFamily: F.bold }]}
@@ -204,11 +206,11 @@ export default function RecuperarSenhaScreen() {
               </View>
 
               <TouchableOpacity style={[styles.mainBtn, { marginTop: 40 }]} onPress={handleVerifyOtp} disabled={loading}>
-                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>VALIDAR CÓDIGO</Text>}
+                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>{t('VALIDAR CÓDIGO')}</Text>}
               </TouchableOpacity>
-              
+
               <TouchableOpacity onPress={() => setStep(1)} style={{ alignItems: 'center', marginTop: 24 }}>
-                <Text style={{ color: V.muted, textDecorationLine: 'underline', fontSize: 12 }}>Voltar para pedir outro código</Text>
+                <Text style={{ color: V.muted, textDecorationLine: 'underline', fontSize: 12 }}>{t('Voltar para pedir outro código')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -218,16 +220,16 @@ export default function RecuperarSenhaScreen() {
               <View style={styles.infoBox}>
                 <Feather name="shield" size={16} color={V.gold} style={{ marginRight: 8 }} />
                 <Text style={styles.infoText}>
-                   Para segurança dos seus ativos, mudar a senha exige reenviar a Frase Secreta (12 palavras) para re-criptografar a carteira local.
+                   {t('Para segurança dos seus ativos, mudar a senha exige reenviar a Frase Secreta (12 palavras) para re-criptografar a carteira local.')}
                 </Text>
               </View>
 
-              <Text style={[styles.label, { marginTop: 24 }]}>NOVA SENHA</Text>
+              <Text style={[styles.label, { marginTop: 24 }]}>{t('NOVA SENHA')}</Text>
               <View style={styles.inputBox}>
                 <Feather name="lock" size={18} color={V.gold} style={{marginRight: 12}} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Sua nova senha"
+                  placeholder={t('Sua nova senha')}
                   placeholderTextColor={V.muted}
                   secureTextEntry={!showPassword}
                   value={newPassword}
@@ -238,12 +240,12 @@ export default function RecuperarSenhaScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.label, { marginTop: 20 }]}>REPETIR NOVA SENHA</Text>
+              <Text style={[styles.label, { marginTop: 20 }]}>{t('REPETIR NOVA SENHA')}</Text>
               <View style={styles.inputBox}>
                 <Feather name="lock" size={18} color={V.gold} style={{marginRight: 12}} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Confirme a senha"
+                  placeholder={t('Confirme a senha')}
                   placeholderTextColor={V.muted}
                   secureTextEntry={!showPassword}
                   value={confirmPassword}
@@ -254,11 +256,11 @@ export default function RecuperarSenhaScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.label, { marginTop: 32 }]}>FRASE DE RECUPERAÇÃO (12 PALAVRAS)</Text>
+              <Text style={[styles.label, { marginTop: 32 }]}>{t('FRASE DE RECUPERAÇÃO (12 PALAVRAS)')}</Text>
               <View style={styles.mnemonicInputBox}>
                 <TextInput
                   style={styles.mnemonicInput}
-                  placeholder="word1 word2 word3..."
+                  placeholder={t('word1 word2 word3...')}
                   placeholderTextColor={V.muted}
                   multiline
                   numberOfLines={3}
@@ -268,12 +270,12 @@ export default function RecuperarSenhaScreen() {
                 />
                 <TouchableOpacity style={styles.pasteBtn} onPress={handlePasteMnemonic}>
                   <Feather name="clipboard" size={14} color={V.bg} style={{ marginRight: 4 }} />
-                  <Text style={styles.pasteBtnText}>COLAR</Text>
+                  <Text style={styles.pasteBtnText}>{t('COLAR')}</Text>
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={[styles.mainBtn, { marginTop: 32, marginBottom: 40 }]} onPress={handleResetPassword} disabled={loading}>
-                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>REDEFINIR ACESSO E CARTEIRA</Text>}
+                {loading ? <ActivityIndicator color={V.bg} /> : <Text style={styles.mainBtnText}>{t('REDEFINIR ACESSO E CARTEIRA')}</Text>}
               </TouchableOpacity>
             </View>
           )}

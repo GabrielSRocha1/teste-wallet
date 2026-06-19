@@ -30,6 +30,7 @@ import { V, F } from '@/constants/theme';
 import { useConnection } from '@/src/context/ConnectionContext';
 import { ConnectedSession, PERMISSION_META, Permission } from '@/src/services/connectionService';
 import trustedDapps from '@/src/services/trustedDapps';
+import { useSettings } from '@/constants/SettingsContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -52,16 +53,16 @@ function formatDate(ts: number): string {
   return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: (k: string, p?: Record<string, string>) => string): string {
   const diff  = Date.now() - ts;
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
 
-  if (mins < 1)   return 'Agora mesmo';
-  if (mins < 60)  return `${mins}m atrás`;
-  if (hours < 24) return `${hours}h atrás`;
-  if (days < 30)  return `${days}d atrás`;
+  if (mins < 1)   return t('Agora mesmo');
+  if (mins < 60)  return t('{n}m atrás', { n: String(mins) });
+  if (hours < 24) return t('{n}h atrás', { n: String(hours) });
+  if (days < 30)  return t('{n}d atrás', { n: String(days) });
   return formatDate(ts);
 }
 
@@ -78,6 +79,7 @@ function SessionCard({ session, onRevoke, onOpen }: {
   onRevoke: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useSettings();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -101,7 +103,7 @@ function SessionCard({ session, onRevoke, onOpen }: {
         </View>
 
         <View style={card.rightGroup}>
-          <Text style={card.timeAgo}>{timeAgo(session.connectedAt)}</Text>
+          <Text style={card.timeAgo}>{timeAgo(session.connectedAt, t)}</Text>
           <Feather
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
@@ -114,23 +116,23 @@ function SessionCard({ session, onRevoke, onOpen }: {
         <View style={card.details}>
           {/* Info */}
           <View style={card.detailRow}>
-            <Text style={card.detailLabel}>Endereço</Text>
+            <Text style={card.detailLabel}>{t('Endereço')}</Text>
             <Text style={card.detailValue}>{truncateKey(session.publicKey)}</Text>
           </View>
           <View style={card.detailRow}>
-            <Text style={card.detailLabel}>Rede</Text>
+            <Text style={card.detailLabel}>{t('Rede')}</Text>
             <View style={card.networkBadge}>
               <View style={[card.networkDot, { backgroundColor: V.success }]} />
               <Text style={card.networkText}>{session.network}</Text>
             </View>
           </View>
           <View style={card.detailRow}>
-            <Text style={card.detailLabel}>Conectado em</Text>
+            <Text style={card.detailLabel}>{t('Conectado em')}</Text>
             <Text style={card.detailValue}>{formatDate(session.connectedAt)}</Text>
           </View>
 
           {/* Permissões */}
-          <Text style={card.permTitle}>Permissões</Text>
+          <Text style={card.permTitle}>{t('Permissões')}</Text>
           <View style={card.permList}>
             {session.permissions.map(perm => {
               const meta = PERMISSION_META[perm];
@@ -138,7 +140,7 @@ function SessionCard({ session, onRevoke, onOpen }: {
               return (
                 <View key={perm} style={card.permRow}>
                   <Feather name={meta.icon as any} size={12} color={RISK_COLOR[meta.risk]} />
-                  <Text style={card.permLabel}>{meta.label}</Text>
+                  <Text style={card.permLabel}>{t(meta.label)}</Text>
                 </View>
               );
             })}
@@ -148,11 +150,11 @@ function SessionCard({ session, onRevoke, onOpen }: {
           <View style={card.actions}>
             <TouchableOpacity style={card.openBtn} onPress={onOpen}>
               <Feather name="external-link" size={14} color={V.gold} />
-              <Text style={card.openText}>Abrir</Text>
+              <Text style={card.openText}>{t('Abrir')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={card.revokeBtn} onPress={onRevoke}>
               <Feather name="slash" size={14} color={V.danger} />
-              <Text style={card.revokeText}>Desconectar</Text>
+              <Text style={card.revokeText}>{t('Desconectar')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -166,6 +168,7 @@ function SessionCard({ session, onRevoke, onOpen }: {
 export default function ConnectedAppsScreen() {
   const insets = useSafeAreaInsets();
   const { sessions, revokeSession, reloadSessions } = useConnection();
+  const { t } = useSettings();
 
   useEffect(() => {
     reloadSessions();
@@ -178,19 +181,19 @@ export default function ConnectedAppsScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (confirm(`Desconectar ${session.name}?`)) doRevoke();
+      if (confirm(t('Desconectar {name}?', { name: session.name }))) doRevoke();
       return;
     }
 
     Alert.alert(
-      'Desconectar dApp',
-      `Tem certeza que deseja desconectar "${session.name}"?\n\nO dApp perderá acesso à sua carteira.`,
+      t('Desconectar dApp'),
+      t('Tem certeza que deseja desconectar "{name}"?\n\nO dApp perderá acesso à sua carteira.', { name: session.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Desconectar', style: 'destructive', onPress: doRevoke },
+        { text: t('Cancelar'), style: 'cancel' },
+        { text: t('Desconectar'), style: 'destructive', onPress: doRevoke },
       ],
     );
-  }, [revokeSession]);
+  }, [revokeSession, t]);
 
   const handleRevokeAll = useCallback(() => {
     if (sessions.length === 0) return;
@@ -203,19 +206,19 @@ export default function ConnectedAppsScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (confirm('Desconectar todos os dApps?')) doRevokeAll();
+      if (confirm(t('Desconectar todos os dApps?'))) doRevokeAll();
       return;
     }
 
     Alert.alert(
-      'Desconectar Todos',
-      `Tem certeza que deseja desconectar ${sessions.length} dApp(s)?\n\nTodos perderão acesso à sua carteira.`,
+      t('Desconectar Todos'),
+      t('Tem certeza que deseja desconectar {count} dApp(s)?\n\nTodos perderão acesso à sua carteira.', { count: String(sessions.length) }),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Desconectar Todos', style: 'destructive', onPress: doRevokeAll },
+        { text: t('Cancelar'), style: 'cancel' },
+        { text: t('Desconectar Todos'), style: 'destructive', onPress: doRevokeAll },
       ],
     );
-  }, [sessions, revokeSession]);
+  }, [sessions, revokeSession, t]);
 
   const openDApp = useCallback((session: ConnectedSession) => {
     router.push({
@@ -236,10 +239,10 @@ export default function ConnectedAppsScreen() {
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
           <Feather name="arrow-left" size={22} color={V.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Apps Conectados</Text>
+        <Text style={s.headerTitle}>{t('Apps Conectados')}</Text>
         {sessions.length > 0 ? (
           <TouchableOpacity style={s.revokeAllBtn} onPress={handleRevokeAll}>
-            <Text style={s.revokeAllText}>Desconectar Todos</Text>
+            <Text style={s.revokeAllText}>{t('Desconectar Todos')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 100 }} />
@@ -258,8 +261,7 @@ export default function ConnectedAppsScreen() {
         >
           <Feather name="shield" size={18} color={V.gold} />
           <Text style={s.infoText}>
-            Os dApps abaixo têm acesso ao endereço público da sua carteira.
-            Sua chave privada nunca é compartilhada.
+            {t('Os dApps abaixo têm acesso ao endereço público da sua carteira. Sua chave privada nunca é compartilhada.')}
           </Text>
         </LinearGradient>
 
@@ -268,13 +270,13 @@ export default function ConnectedAppsScreen() {
           <View style={s.statsRow}>
             <View style={s.statCard}>
               <Text style={s.statNumber}>{sessions.length}</Text>
-              <Text style={s.statLabel}>Conectados</Text>
+              <Text style={s.statLabel}>{t('Conectados')}</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statNumber}>
                 {sessions.filter(s => s.permissions.includes('signTransaction')).length}
               </Text>
-              <Text style={s.statLabel}>Com assinatura</Text>
+              <Text style={s.statLabel}>{t('Com assinatura')}</Text>
             </View>
           </View>
         )}
@@ -285,16 +287,16 @@ export default function ConnectedAppsScreen() {
             <View style={s.emptyIcon}>
               <Feather name="link-2" size={40} color={V.muted + '40'} />
             </View>
-            <Text style={s.emptyTitle}>Nenhum app conectado</Text>
+            <Text style={s.emptyTitle}>{t('Nenhum app conectado')}</Text>
             <Text style={s.emptyDesc}>
-              Navegue para um dApp e conecte sua carteira para vê-lo aqui.
+              {t('Navegue para um dApp e conecte sua carteira para vê-lo aqui.')}
             </Text>
             <TouchableOpacity
               style={s.exploreBtn}
               onPress={() => router.push('/dapp-hub' as any)}
             >
               <Feather name="compass" size={16} color={V.bg} />
-              <Text style={s.exploreBtnText}>Explorar dApps</Text>
+              <Text style={s.exploreBtnText}>{t('Explorar dApps')}</Text>
             </TouchableOpacity>
           </View>
         ) : (

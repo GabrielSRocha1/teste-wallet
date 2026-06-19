@@ -74,18 +74,18 @@ export default function KYCScreen() {
         try {
           const result = await syncKycStatus();
           if (result.approved) {
-            Alert.alert('✓ Verificação Aprovada', 'Seu KYC foi aprovado com sucesso!', [
+            Alert.alert(t('✓ Verificação Aprovada'), t('Seu KYC foi aprovado com sucesso!'), [
               { text: 'OK', onPress: () => router.back() },
             ]);
           } else if (result.kycStatus === 'onHold' || result.kycStatus === 'initiated') {
-            Alert.alert('Em Análise', 'Sua verificação está sendo processada. Você será notificado em breve.');
+            Alert.alert(t('Em Análise'), t('Sua verificação está sendo processada. Você será notificado em breve.'));
           } else if (result.kycStatus === 'rejected') {
-            Alert.alert('Verificação Rejeitada', 'Sua verificação foi rejeitada. Tente novamente.');
+            Alert.alert(t('Verificação Rejeitada'), t('Sua verificação foi rejeitada. Tente novamente.'));
           } else {
-            Alert.alert('Status Atualizado', `Status atual: ${result.kycStatus ?? 'processando'}`);
+            Alert.alert(t('Status Atualizado'), t('Status atual: {status}', { status: String(result.kycStatus ?? t('processando')) }));
           }
         } catch {
-          Alert.alert('Aviso', 'Não foi possível verificar o status. Tente novamente em instantes.');
+          Alert.alert(t('Aviso'), t('Não foi possível verificar o status. Tente novamente em instantes.'));
         } finally {
           setIsChecking(false);
         }
@@ -165,7 +165,7 @@ export default function KYCScreen() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado.');
+      if (!user) throw new Error(t('Usuário não autenticado.'));
 
       // Converter DD/MM/AAAA para AAAA-MM-DD antes de salvar no banco
       const dateParts = form.data_nascimento.split('/');
@@ -185,24 +185,24 @@ export default function KYCScreen() {
       const initResult = await initiateKyc(user.id);
       
       if (!initResult.success || !initResult.verificationUrl) {
-        throw new Error(initResult.error || 'Não foi possível iniciar a verificação biométrica.');
+        throw new Error(initResult.error || t('Não foi possível iniciar a verificação biométrica.'));
       }
 
-      const message = 'Agora você será redirecionado para a plataforma Didit para realizar a verificação facial e de documentos.';
-      
+      const message = t('Agora você será redirecionado para a plataforma Didit para realizar a verificação facial e de documentos.');
+
       if (Platform.OS === 'web') {
-        const proceed = window.confirm(`✓ Dados Salvos\n\n${message}\n\nDeseja continuar para a verificação?`);
+        const proceed = window.confirm(`${t('✓ Dados Salvos')}\n\n${message}\n\n${t('Deseja continuar para a verificação?')}`);
         if (proceed && initResult.verificationUrl) {
           waitingForVerification.current = true;
           window.open(initResult.verificationUrl, '_blank');
         }
       } else {
         Alert.alert(
-          '✓ Dados Salvos',
+          t('✓ Dados Salvos'),
           message,
           [
             {
-              text: 'Ir para Verificação',
+              text: t('Ir para Verificação'),
               onPress: () => {
                 if (initResult.verificationUrl) {
                   waitingForVerification.current = true;
@@ -223,9 +223,9 @@ export default function KYCScreen() {
       console.error('[KYC] Erro fatal no fluxo:', e);
 
       if (Platform.OS === 'web') {
-        alert(`Erro: ${detailedError}`);
+        alert(`${t('Erro')}: ${detailedError}`);
       } else {
-        Alert.alert('Erro', detailedError);
+        Alert.alert(t('Erro'), detailedError);
       }
     } finally {
       setIsSaving(false);
@@ -250,12 +250,12 @@ export default function KYCScreen() {
           <View style={styles.titleBox}>
             <View style={styles.badge}>
               <Feather name="shield" size={13} color={V.gold} />
-              <Text style={styles.badgeText}>VERIFICAÇÃO OBRIGATÓRIA</Text>
+              <Text style={styles.badgeText}>{t('VERIFICAÇÃO OBRIGATÓRIA')}</Text>
             </View>
-            <Text style={styles.title}>VERIFICAÇÃO{'\n'}DE IDENTIDADE</Text>
+            <Text style={styles.title}>{t('VERIFICAÇÃO')}{'\n'}{t('DE IDENTIDADE')}</Text>
             <View style={styles.goldLine} />
             <Text style={styles.subtitle}>
-              Para processar seu depósito com segurança, precisamos confirmar sua identidade. Os dados são criptografados e protegidos.
+              {t('Para processar seu depósito com segurança, precisamos confirmar sua identidade. Os dados são criptografados e protegidos.')}
             </Text>
           </View>
 
@@ -265,17 +265,17 @@ export default function KYCScreen() {
               <View style={styles.cardIcon}>
                 <Feather name="user" size={16} color={V.gold} />
               </View>
-              <Text style={styles.cardTitle}>DADOS PESSOAIS</Text>
+              <Text style={styles.cardTitle}>{t('DADOS PESSOAIS')}</Text>
             </View>
 
             {/* Nome */}
             <View style={styles.row}>
               <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.label}>NOME</Text>
+                <Text style={styles.label}>{t('NOME')}</Text>
                 <View style={[styles.inputWrapper, errors.nome && styles.inputError]}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Seu nome"
+                    placeholder={t('Seu nome')}
                     placeholderTextColor={V.muted}
                     value={form.nome}
                     autoCapitalize="words"
@@ -286,11 +286,11 @@ export default function KYCScreen() {
               </View>
 
               <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.label}>SOBRENOME</Text>
+                <Text style={styles.label}>{t('SOBRENOME')}</Text>
                 <View style={[styles.inputWrapper, errors.sobrenome && styles.inputError]}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Seu sobrenome"
+                    placeholder={t('Seu sobrenome')}
                     placeholderTextColor={V.muted}
                     value={form.sobrenome}
                     autoCapitalize="words"
@@ -320,11 +320,11 @@ export default function KYCScreen() {
 
             {/* Data de Nascimento */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>DATA DE NASCIMENTO</Text>
+              <Text style={styles.label}>{t('DATA DE NASCIMENTO')}</Text>
               <View style={[styles.inputWrapper, errors.data_nascimento && styles.inputError]}>
                 <TextInput
                   style={styles.input}
-                  placeholder="DD/MM/AAAA"
+                  placeholder={t('DD/MM/AAAA')}
                   placeholderTextColor={V.muted}
                   value={form.data_nascimento}
                   keyboardType="numeric"
@@ -337,14 +337,14 @@ export default function KYCScreen() {
 
             {/* Nacionalidade */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>NACIONALIDADE</Text>
+              <Text style={styles.label}>{t('NACIONALIDADE')}</Text>
               <TouchableOpacity
                 style={[styles.inputWrapper, styles.selectWrapper, errors.nacionalidade && styles.inputError]}
                 onPress={() => setShowNacionalidades(v => !v)}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.input, { paddingVertical: 13, color: V.text }]}>
-                  {form.nacionalidade || 'Selecionar...'}
+                  {form.nacionalidade || t('Selecionar...')}
                 </Text>
                 <Feather
                   name={showNacionalidades ? 'chevron-up' : 'chevron-down'}
@@ -389,7 +389,7 @@ export default function KYCScreen() {
           <View style={styles.privacyBox}>
             <Feather name="lock" size={13} color={V.muted} />
             <Text style={styles.privacyText}>
-              Seus dados são protegidos com criptografia e utilizados exclusivamente para fins de verificação de identidade (KYC), conforme a legislação vigente.
+              {t('Seus dados são protegidos com criptografia e utilizados exclusivamente para fins de verificação de identidade (KYC), conforme a legislação vigente.')}
             </Text>
           </View>
 
@@ -413,12 +413,12 @@ export default function KYCScreen() {
               : <Feather name="check-circle" size={20} color={V.bg} />
             }
             <Text style={styles.saveBtnText}>
-              {isSaving ? 'SALVANDO...' : isChecking ? 'VERIFICANDO...' : 'SALVAR E CONTINUAR'}
+              {isSaving ? t('SALVANDO...') : isChecking ? t('VERIFICANDO...') : t('SALVAR E CONTINUAR')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
-            <Text style={styles.cancelBtnText}>CANCELAR</Text>
+            <Text style={styles.cancelBtnText}>{t('CANCELAR')}</Text>
           </TouchableOpacity>
         </ScrollView>
 

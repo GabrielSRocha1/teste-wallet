@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import { Feather } from '@expo/vector-icons';
 import { V, F } from '@/constants/theme';
 import PinPad from '@/components/PinPad';
+import { useSettings } from '@/constants/SettingsContext';
 
 interface PasswordModalProps {
   isVisible: boolean;
@@ -18,6 +19,7 @@ interface PasswordModalProps {
 const MAX_PIN = 6;
 
 export default function PasswordModal({ isVisible, onClose, onConfirm, title, description, loading, errorMessage }: PasswordModalProps) {
+  const { t } = useSettings();
   const [pin, setPin] = useState('');
 
   // Reseta o PIN toda vez que o modal abre
@@ -67,11 +69,11 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
               <View style={styles.iconCircle}>
                 <Feather name="lock" size={20} color={V.gold} />
               </View>
-              <Text style={styles.modalTitle}>{title || 'CONFIRMAR SENHA'}</Text>
+              <Text style={styles.modalTitle}>{title || t('CONFIRMAR SENHA')}</Text>
             </View>
 
             <Text style={styles.modalDescription}>
-              {description || 'Digite seu PIN de 6 dígitos para continuar.'}
+              {description || t('Digite seu PIN de 6 dígitos para continuar.')}
             </Text>
 
             <PinPad value={pin} onChange={setPin} maxLength={MAX_PIN} loading={loading} />
@@ -91,7 +93,7 @@ export default function PasswordModal({ isVisible, onClose, onConfirm, title, de
               activeOpacity={0.8}
             >
               <Text style={[styles.confirmText, isConfirmDisabled && styles.confirmTextDisabled]}>
-                CONFIRMAR
+                {t('CONFIRMAR')}
               </Text>
             </TouchableOpacity>
           </View>
