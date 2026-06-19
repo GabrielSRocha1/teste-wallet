@@ -904,4 +904,30 @@ export const it: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'TORNA ALLA HOME',
   'VOLTAR PARA INÍCIO': 'TORNA ALLA HOME',
   'Wallet não encontrada. Reconecte sua carteira.': 'Portafoglio non trovato. Riconnetti il tuo portafoglio.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Scambio dell\'asset in SOL e invio al destinatario...',
+  'Convertido automaticamente de': 'Convertito automaticamente da',
+  'via swap on-chain': 'via swap on-chain',
+  'slippage': 'slippage',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap completato ma l\'invio del SOL al destinatario è fallito.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Il SOL ricevuto è nel tuo portafoglio — prova a inviarlo manualmente al destinatario.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'Reinvio SOL al destinatario...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Stato di recupero perso. Riapri la schermata e prova di nuovo l\'invio da zero.',
+  'Reenvio falhou': 'Reinvio fallito',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Impossibile reinviare SOL ora. Riprova tra un momento.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP COMPLETATO — INVIO IN ATTESA',
+  'SOL AGUARDANDO REENVIO': 'SOL IN ATTESA DI REINVIO',
+  'DESTINATÁRIO': 'DESTINATARIO',
+  'HASH DO SWAP (CONFIRMADO)': 'HASH DELLO SWAP (CONFERMATO)',
+  'REENVIAR SOL': 'REINVIA SOL',
+  'FECHAR (REENVIAR DEPOIS)': 'CHIUDI (REINVIA DOPO)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Scartare in sospeso?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Confermi di aver già risolto questo invio per altra via? Questo elemento in sospeso sarà eliminato e non riapparirà.',
+  'DISPENSAR': 'SCARTA',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'GIÀ RISOLTO ALTROVE — SCARTA',
 };

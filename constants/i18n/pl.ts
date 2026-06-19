@@ -904,4 +904,30 @@ export const pl: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'POWRÓT DO STRONY GŁÓWNEJ',
   'VOLTAR PARA INÍCIO': 'POWRÓT DO STRONY GŁÓWNEJ',
   'Wallet não encontrada. Reconecte sua carteira.': 'Nie znaleziono portfela. Połącz portfel ponownie.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Wymiana aktywa na SOL i wysyłanie do odbiorcy...',
+  'Convertido automaticamente de': 'Automatycznie skonwertowane z',
+  'via swap on-chain': 'przez swap on-chain',
+  'slippage': 'slippage',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap zakończony, ale wysłanie SOL do odbiorcy nie powiodło się.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Otrzymany SOL jest w Twoim portfelu — spróbuj wysłać go ponownie ręcznie do odbiorcy.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'Ponowne wysyłanie SOL do odbiorcy...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Stan odzyskiwania utracony. Otwórz ekran ponownie i spróbuj wysyłki od początku.',
+  'Reenvio falhou': 'Ponowne wysłanie nie powiodło się',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Nie można teraz ponownie wysłać SOL. Spróbuj ponownie za chwilę.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP ZAKOŃCZONY — WYSYŁKA OCZEKUJĄCA',
+  'SOL AGUARDANDO REENVIO': 'SOL OCZEKUJE NA PONOWNĄ WYSYŁKĘ',
+  'DESTINATÁRIO': 'ODBIORCA',
+  'HASH DO SWAP (CONFIRMADO)': 'HASH SWAPA (POTWIERDZONY)',
+  'REENVIAR SOL': 'WYŚLIJ SOL PONOWNIE',
+  'FECHAR (REENVIAR DEPOIS)': 'ZAMKNIJ (WYŚLIJ PÓŹNIEJ)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Odrzucić oczekujące?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Potwierdzasz, że już rozwiązałeś tę wysyłkę w inny sposób? Ten oczekujący wpis zostanie usunięty i nie pojawi się ponownie.',
+  'DISPENSAR': 'ODRZUĆ',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'JUŻ ROZWIĄZANE NA ZEWNĄTRZ — ODRZUĆ',
 };

@@ -915,4 +915,30 @@ export const fr: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'RETOUR À L\'ACCUEIL',
   'VOLTAR PARA INÍCIO': 'RETOUR À L\'ACCUEIL',
   'Wallet não encontrada. Reconecte sua carteira.': 'Portefeuille introuvable. Reconnectez votre portefeuille.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Échange de l\'actif en SOL et envoi au destinataire...',
+  'Convertido automaticamente de': 'Converti automatiquement depuis',
+  'via swap on-chain': 'via swap on-chain',
+  'slippage': 'slippage',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap terminé mais l\'envoi du SOL au destinataire a échoué.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Le SOL reçu est dans votre portefeuille — essayez de le renvoyer manuellement au destinataire.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'Renvoi du SOL au destinataire...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'État de récupération perdu. Rouvrez l\'écran et recommencez l\'envoi depuis le début.',
+  'Reenvio falhou': 'Échec du renvoi',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Impossible de renvoyer SOL pour l\'instant. Réessayez dans un instant.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP TERMINÉ — ENVOI EN ATTENTE',
+  'SOL AGUARDANDO REENVIO': 'SOL EN ATTENTE DE RENVOI',
+  'DESTINATÁRIO': 'DESTINATAIRE',
+  'HASH DO SWAP (CONFIRMADO)': 'HASH DU SWAP (CONFIRMÉ)',
+  'REENVIAR SOL': 'RENVOYER SOL',
+  'FECHAR (REENVIAR DEPOIS)': 'FERMER (RENVOYER PLUS TARD)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Ignorer l\'envoi en attente ?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Confirmez-vous avoir résolu cet envoi par un autre moyen ? Cet élément en attente sera supprimé et ne réapparaîtra pas.',
+  'DISPENSAR': 'IGNORER',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'DÉJÀ RÉSOLU À L\'EXTÉRIEUR — IGNORER',
 };

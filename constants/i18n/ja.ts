@@ -904,4 +904,30 @@ export const ja: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'ホームに戻る',
   'VOLTAR PARA INÍCIO': 'ホームに戻る',
   'Wallet não encontrada. Reconecte sua carteira.': 'ウォレットが見つかりません。ウォレットを再接続してください。',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': '資産を SOL に交換して受取人に送信中...',
+  'Convertido automaticamente de': '自動変換元:',
+  'via swap on-chain': 'オンチェーンスワップ経由',
+  'slippage': 'スリッページ',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'スワップは完了しましたが、受取人への SOL 送信に失敗しました。',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': '受け取った SOL はウォレットにあります — 受取人へ手動で再送信してください。',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'SOL を受取人に再送信中...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'リカバリ状態が失われました。画面を再度開き、最初から送信をやり直してください。',
+  'Reenvio falhou': '再送信失敗',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': '現在 SOL を再送信できません。少し時間をおいて再試行してください。',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'スワップ完了 — 送信保留中',
+  'SOL AGUARDANDO REENVIO': '再送信待機中の SOL',
+  'DESTINATÁRIO': '受取人',
+  'HASH DO SWAP (CONFIRMADO)': 'スワップハッシュ（確認済み）',
+  'REENVIAR SOL': 'SOL を再送信',
+  'FECHAR (REENVIAR DEPOIS)': '閉じる（あとで再送信）',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': '保留中を破棄しますか？',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'この送信を他の方法で既に解決したことを確認しますか？この保留中の項目は削除され、再表示されません。',
+  'DISPENSAR': '破棄',
+  'JÁ RESOLVI POR FORA — DISPENSAR': '外部で解決済み — 破棄',
 };

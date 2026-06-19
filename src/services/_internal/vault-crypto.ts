@@ -37,7 +37,17 @@ import nacl from 'tweetnacl';
 import { Buffer } from 'buffer';
 
 const FORMAT_PREFIX = 'vrm-v2:';
-const PBKDF2_ITERATIONS = 210_000;
+// Detecta ambiente vitest pra acelerar suítes que criam vaults reais (~600ms cada
+// em 210k vs <50ms em 10k). VITEST é setado automaticamente pelo runner. Em prod
+// (sem essa env), continua 210k. O threshold de decrypt acompanha — senão tests
+// que decifram vault de 10k seriam rejeitados pela defesa anti-downgrade.
+const IS_VITEST =
+  typeof process !== 'undefined' && (process.env as { VITEST?: string } | undefined)?.VITEST === 'true';
+const PBKDF2_ITERATIONS = IS_VITEST ? 10_000 : 210_000;
+/** Iterações mínimas aceitas na descriptografia. Defesa-em-profundidade contra
+ *  envelope adulterado com kdf muito baixo. Poly1305 já bloqueia downgrade sem
+ *  conhecer a chave, mas o threshold é defesa barata. */
+const MIN_DECRYPT_ITERATIONS = IS_VITEST ? 5_000 : 100_000;
 const SALT_BYTES = 16;
 const NONCE_BYTES = nacl.secretbox.nonceLength; // 24
 const KEY_BYTES = nacl.secretbox.keyLength; // 32
@@ -220,8 +230,10 @@ export function decryptVault(blob: string, pin: string): unknown {
   // defesa em profundidade barata.
   const iterMatch = envelope.kdf.match(/pbkdf2-sha256-(\d+)/);
   const iterations = iterMatch ? parseInt(iterMatch[1], 10) : PBKDF2_ITERATIONS;
-  if (!Number.isFinite(iterations) || iterations < 100_000) {
-    throw new Error(`KDF iterations inválidas no envelope: ${iterations} (mín 100_000 — OWASP)`);
+  if (!Number.isFinite(iterations) || iterations < MIN_DECRYPT_ITERATIONS) {
+    throw new Error(
+      `KDF iterations inválidas no envelope: ${iterations} (mín ${MIN_DECRYPT_ITERATIONS} — OWASP)`,
+    );
   }
 
   // 4. Derivar key e decifrar

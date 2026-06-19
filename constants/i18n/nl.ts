@@ -904,4 +904,30 @@ export const nl: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'TERUG NAAR HOME',
   'VOLTAR PARA INÍCIO': 'TERUG NAAR HOME',
   'Wallet não encontrada. Reconecte sua carteira.': 'Wallet niet gevonden. Verbind je wallet opnieuw.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Activum wordt geruild voor SOL en naar ontvanger gestuurd...',
+  'Convertido automaticamente de': 'Automatisch geconverteerd van',
+  'via swap on-chain': 'via on-chain swap',
+  'slippage': 'slippage',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap voltooid maar verzending van SOL naar ontvanger mislukt.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'De ontvangen SOL staat in je wallet — probeer handmatig opnieuw te verzenden naar de ontvanger.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'SOL wordt opnieuw naar ontvanger verzonden...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Herstelstatus verloren. Open het scherm opnieuw en probeer de verzending vanaf het begin.',
+  'Reenvio falhou': 'Opnieuw verzenden mislukt',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'SOL kan nu niet opnieuw worden verzonden. Probeer het over een moment opnieuw.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP VOLTOOID — VERZENDING IN AFWACHTING',
+  'SOL AGUARDANDO REENVIO': 'SOL WACHT OP HERVERZENDING',
+  'DESTINATÁRIO': 'ONTVANGER',
+  'HASH DO SWAP (CONFIRMADO)': 'SWAP-HASH (BEVESTIGD)',
+  'REENVIAR SOL': 'SOL OPNIEUW VERZENDEN',
+  'FECHAR (REENVIAR DEPOIS)': 'SLUITEN (LATER VERZENDEN)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Lopende verzending negeren?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Bevestigen dat je deze verzending al via een ander kanaal hebt opgelost? Deze openstaande verzending wordt verwijderd en verschijnt niet opnieuw.',
+  'DISPENSAR': 'NEGEREN',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'AL EXTERN OPGELOST — NEGEREN',
 };

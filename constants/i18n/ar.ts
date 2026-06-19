@@ -904,4 +904,30 @@ export const ar: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'العودة إلى الصفحة الرئيسية',
   'VOLTAR PARA INÍCIO': 'العودة إلى الصفحة الرئيسية',
   'Wallet não encontrada. Reconecte sua carteira.': 'لم يتم العثور على المحفظة. أعد توصيل محفظتك.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'تبديل الأصل إلى SOL وإرساله إلى المستلم...',
+  'Convertido automaticamente de': 'تم التحويل تلقائيا من',
+  'via swap on-chain': 'عبر تبادل على السلسلة',
+  'slippage': 'الانزلاق',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'اكتمل التبادل لكن إرسال SOL إلى المستلم فشل.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'SOL المستلم في محفظتك — حاول إعادة إرساله يدويا إلى المستلم.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'إعادة إرسال SOL إلى المستلم...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'فُقدت حالة الاسترداد. أعد فتح الشاشة وحاول الإرسال من البداية.',
+  'Reenvio falhou': 'فشل إعادة الإرسال',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'تعذرت إعادة إرسال SOL الآن. حاول مرة أخرى بعد لحظات.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'اكتمل التبادل — الإرسال قيد الانتظار',
+  'SOL AGUARDANDO REENVIO': 'SOL في انتظار إعادة الإرسال',
+  'DESTINATÁRIO': 'المستلم',
+  'HASH DO SWAP (CONFIRMADO)': 'هاش التبادل (مؤكد)',
+  'REENVIAR SOL': 'إعادة إرسال SOL',
+  'FECHAR (REENVIAR DEPOIS)': 'إغلاق (إعادة الإرسال لاحقا)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'تجاهل المعلق؟',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'هل تؤكد أنك حللت هذا الإرسال بالفعل بطريقة أخرى؟ سيتم حذف هذا المعلق ولن يظهر مرة أخرى.',
+  'DISPENSAR': 'تجاهل',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'تم الحل خارجيا — تجاهل',
 };

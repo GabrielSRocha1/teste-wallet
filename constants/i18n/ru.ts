@@ -904,4 +904,30 @@ export const ru: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'ВЕРНУТЬСЯ НА ГЛАВНУЮ',
   'VOLTAR PARA INÍCIO': 'ВЕРНУТЬСЯ НА ГЛАВНУЮ',
   'Wallet não encontrada. Reconecte sua carteira.': 'Кошелёк не найден. Подключите кошелёк снова.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Обмен актива на SOL и отправка получателю...',
+  'Convertido automaticamente de': 'Автоматически конвертировано из',
+  'via swap on-chain': 'через ончейн своп',
+  'slippage': 'проскальзывание',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Своп выполнен, но отправка SOL получателю не удалась.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Полученный SOL находится в вашем кошельке — попробуйте отправить его получателю вручную.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'Повторная отправка SOL получателю...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Состояние восстановления потеряно. Откройте экран заново и повторите отправку с самого начала.',
+  'Reenvio falhou': 'Повторная отправка не удалась',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Не удалось повторно отправить SOL прямо сейчас. Попробуйте через мгновение.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'СВОП ВЫПОЛНЕН — ОТПРАВКА В ОЖИДАНИИ',
+  'SOL AGUARDANDO REENVIO': 'SOL ОЖИДАЕТ ПОВТОРНОЙ ОТПРАВКИ',
+  'DESTINATÁRIO': 'ПОЛУЧАТЕЛЬ',
+  'HASH DO SWAP (CONFIRMADO)': 'ХЭШ СВОПА (ПОДТВЕРЖДЁН)',
+  'REENVIAR SOL': 'ОТПРАВИТЬ SOL ЗАНОВО',
+  'FECHAR (REENVIAR DEPOIS)': 'ЗАКРЫТЬ (ОТПРАВИТЬ ПОЗЖЕ)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Отклонить ожидающую отправку?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Подтверждаете, что уже решили этот перевод другим способом? Ожидающая запись будет удалена и больше не появится.',
+  'DISPENSAR': 'ОТКЛОНИТЬ',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'РЕШЕНО ВНЕ ПРИЛОЖЕНИЯ — ОТКЛОНИТЬ',
 };

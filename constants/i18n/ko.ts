@@ -904,4 +904,30 @@ export const ko: Record<string, string> = {
   'VOLTAR AO INÍCIO': '홈으로 돌아가기',
   'VOLTAR PARA INÍCIO': '홈으로 돌아가기',
   'Wallet não encontrada. Reconecte sua carteira.': '지갑을 찾을 수 없습니다. 지갑을 다시 연결하세요.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': '자산을 SOL로 스왑하여 수신자에게 전송 중...',
+  'Convertido automaticamente de': '자동 변환:',
+  'via swap on-chain': '온체인 스왑을 통해',
+  'slippage': '슬리피지',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': '스왑은 완료되었지만 수신자에게 SOL 전송에 실패했습니다.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': '수신한 SOL은 귀하의 지갑에 있습니다 — 수신자에게 수동으로 다시 보내십시오.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': '수신자에게 SOL을 다시 전송 중...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': '복구 상태가 손실되었습니다. 화면을 다시 열고 처음부터 전송을 시도하십시오.',
+  'Reenvio falhou': '재전송 실패',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': '지금 SOL을 재전송할 수 없습니다. 잠시 후 다시 시도하십시오.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': '스왑 완료 — 전송 대기 중',
+  'SOL AGUARDANDO REENVIO': '재전송 대기 중인 SOL',
+  'DESTINATÁRIO': '수신자',
+  'HASH DO SWAP (CONFIRMADO)': '스왑 해시 (확인됨)',
+  'REENVIAR SOL': 'SOL 재전송',
+  'FECHAR (REENVIAR DEPOIS)': '닫기 (나중에 재전송)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': '대기 중인 항목을 무시하시겠습니까?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': '이 전송을 다른 방법으로 이미 해결했음을 확인하시겠습니까? 이 대기 중인 항목은 삭제되며 다시 나타나지 않습니다.',
+  'DISPENSAR': '무시',
+  'JÁ RESOLVI POR FORA — DISPENSAR': '이미 외부에서 해결됨 — 무시',
 };

@@ -4,6 +4,18 @@ import Sidebar from '@/components/Sidebar';
 import CurrencyConverter from '@/components/CurrencyConverter';
 import SwipeToConfirm from '@/components/SwipeToConfirm';
 import { useSendPayment } from '@/src/hooks/useSendPayment';
+import {
+  quoteSwapToSol,
+  executeSwapAndSend,
+  retrySolTransfer,
+  TransferAfterSwapFailedError,
+  type SwapQuoteForRecipient,
+} from '@/src/services/swapAndSendService';
+import {
+  saveRecovery as saveSwapRecovery,
+  loadRecovery as loadSwapRecovery,
+  clearRecovery as clearSwapRecovery,
+} from '@/src/services/_internal/swapRecoveryStorage';
 import { supabase } from '@/src/services/supabase';
 import notificationService from '@/src/services/notificationService';
 import { transactionService, VERUM_TREASURY_ADDRESS, VERUM_FEE_PERCENT } from '@/src/services/transactionService';
@@ -133,6 +145,24 @@ export default function TransferirScreen() {
   const [resolvedDestUserId, setResolvedDestUserId] = useState<string | null>(null);
   const [senderWallet, setSenderWallet] = useState('');
   const [previewPayParams, setPreviewPayParams] = useState<any>(null);
+  /** (transferir = ENVIAR ATIVOS) Quote do swap-then-send quando o input != SOL.
+   *  Null para envios SOL→SOL (path direto). */
+  const [swapQuote, setSwapQuote] = useState<SwapQuoteForRecipient | null>(null);
+  /** Estado de recovery: preenchido quando a Tx 2 (transfer SOL → destino) falha
+   *  após a Tx 1 (swap) confirmar. O SOL está na carteira do remetente aguardando
+   *  reenvio manual via modal de recovery. Null quando não há pendência. */
+  const [failedSwap, setFailedSwap] = useState<{
+    swapTxHash: string;
+    solLamports: string;
+    recipientAddress: string;
+  } | null>(null);
+  const [isRecoveryModalVisible, setIsRecoveryModalVisible] = useState(false);
+  /** Quando true, o próximo handleConfirmPassword roteia pra retry do transfer
+   *  em vez do fluxo normal de execute. */
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
+  /** ID do usuário Supabase atual — usado pra escopar a chave de AsyncStorage
+   *  da pendência de recovery (uma por conta). Null antes do auth.getUser(). */
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -193,7 +223,30 @@ export default function TransferirScreen() {
     checkBiometrics();
     loadBalances();
     loadPricesAndFee();
+    loadPendingRecovery();
   }, [scanData]);
+
+  /** Restaura pendência de recovery (swap concluído mas transfer SOL falhou)
+   *  persistida em sessão anterior. Se houver, abre o modal pra usuário
+   *  reenviar ou dispensar. */
+  const loadPendingRecovery = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
+      const pending = await loadSwapRecovery(user.id);
+      if (pending) {
+        setFailedSwap({
+          swapTxHash: pending.swapTxHash,
+          solLamports: pending.solLamports,
+          recipientAddress: pending.recipientAddress,
+        });
+        setIsRecoveryModalVisible(true);
+      }
+    } catch (e) {
+      console.warn('[transferir] loadPendingRecovery falhou:', e);
+    }
+  };
 
   const loadPricesAndFee = async () => {
     try {
@@ -350,19 +403,41 @@ export default function TransferirScreen() {
         }
       }
 
-      const payParams: any = { type: currency === 'SOL' ? 'SOL' : 'SPL' };
+      // ─── Caminho SOL → SOL: fluxo direto (sem swap) ─────────────────────
       if (currency === 'SOL') {
-        payParams.sol = { from: wallet, to: resolved.walletAddress, amount: qty, feeWallet: VERUM_FEE_WALLET };
-      } else {
-        const transService = require('@/src/services/transactionService').default;
-        const meta = transService.getTokenMeta(currency);
-        if (!meta) throw new Error(`Token ${currency} não suportado na rede ${network}.`);
-        payParams.spl = { from: wallet, to: resolved.walletAddress, mintAddress: meta.mint, amount: qty, decimals: meta.decimals, feeWallet: VERUM_FEE_WALLET };
-      }
-      setPreviewPayParams(payParams);
+        const payParams: any = {
+          type: 'SOL',
+          sol: { from: wallet, to: resolved.walletAddress, amount: qty, feeWallet: VERUM_FEE_WALLET },
+        };
+        setPreviewPayParams(payParams);
+        setSwapQuote(null);
 
-      const previewResult = await buildAndPreview(payParams);
-      if (!previewResult) throw new Error(t('Falha na simulação. Verifique seu saldo e tente novamente.'));
+        const previewResult = await buildAndPreview(payParams);
+        if (!previewResult) throw new Error(t('Falha na simulação. Verifique seu saldo e tente novamente.'));
+
+        setIsPreviewModalVisible(true);
+        return;
+      }
+
+      // ─── Caminho ativo ≠ SOL: swap (input → SOL) + transfer SOL → destino ─
+      const transService = require('@/src/services/transactionService').default;
+      const meta = transService.getTokenMeta(currency);
+      if (!meta) throw new Error(`Token ${currency} não suportado na rede ${network}.`);
+
+      // Quantia em unidades atômicas (smallest units) que vai pro swap.
+      const inputAmountAtomic = BigInt(
+        Math.round(qty * Math.pow(10, meta.decimals)),
+      ).toString();
+
+      setLoadingStep(t('Buscando melhor cotação...'));
+      const quote = await quoteSwapToSol({
+        inputMint: meta.mint,
+        inputAmountAtomic,
+      });
+      setSwapQuote(quote);
+      // previewPayParams preservado pra UI legada (ex.: confirmação) — mas a
+      // execução real usa `quote`.
+      setPreviewPayParams({ type: 'SWAP_THEN_SEND', meta, qty });
 
       setIsPreviewModalVisible(true);
     } catch (err: any) {
@@ -425,12 +500,64 @@ export default function TransferirScreen() {
       await keyManager.startSession(mnemonic, keypair, pin.trim());
       setIsPasswordModalVisible(false);
       setPasswordError(null);
-      executeTransfer(keypair);
+
+      if (isRecoveryFlow) {
+        setIsRecoveryFlow(false);
+        executeRecoveryTransfer(keypair);
+      } else {
+        executeTransfer(keypair);
+      }
     } catch (err: any) {
       console.error('[handleConfirmPassword] Erro ao decifrar chave:', err?.message);
       // Mantém modal aberto e exibe erro inline
       setPasswordError(t('Senha incorreta. Verifique e tente novamente.'));
       setIsLoading(false);
+    }
+  };
+
+  /** Reaberto pelo usuário do modal de recovery — pede senha, decifra e
+   *  reexecuta APENAS a etapa de transfer (sender → recipient). O swap já
+   *  está confirmado on-chain, não refaz. */
+  const handleRetrySwapTransfer = () => {
+    setIsRecoveryFlow(true);
+    setIsRecoveryModalVisible(false);
+    // Mesmo padrão de timing do handleConfirmPreview pra evitar conflito de modais
+    setTimeout(() => setIsPasswordModalVisible(true), Platform.OS === 'ios' ? 0 : 350);
+  };
+
+  const executeRecoveryTransfer = async (signerKeypair: Keypair) => {
+    if (!failedSwap) {
+      Alert.alert(t('Erro'), t('Estado de recovery perdido. Reabra a tela e tente o envio do zero.'));
+      return;
+    }
+    setIsLoading(true);
+    setLoadingStep(t('Reenviando SOL ao destinatário...'));
+    try {
+      const result = await retrySolTransfer({
+        keypair: signerKeypair,
+        recipientAddress: failedSwap.recipientAddress,
+        lamportsToSend: BigInt(failedSwap.solLamports),
+      });
+      // Sucesso — limpa estado de recovery (memória + AsyncStorage) e mostra
+      // modal de sucesso reaproveitando a infra do result modal.
+      setFailedSwap(null);
+      if (currentUserId) await clearSwapRecovery(currentUserId);
+      setIsResultModalVisible(true);
+      // O txHash do result modal vem do hook useSendPayment, mas no recovery
+      // queremos exibir o nosso. Notamos só nos logs por ora — UI mostra o
+      // hash do hook se existir, ou nada (recovery silencia esse caso).
+      console.log('[transferir] Recovery transfer hash:', result.transferTxHash);
+    } catch (err: any) {
+      console.error('[executeRecoveryTransfer] falhou:', err);
+      Alert.alert(
+        t('Reenvio falhou'),
+        err?.message || t('Não foi possível reenviar o SOL agora. Tente novamente em instantes.'),
+      );
+      // Mantém o estado de recovery — usuário pode tentar de novo via modal
+      setIsRecoveryModalVisible(true);
+    } finally {
+      setIsLoading(false);
+      setLoadingStep('');
     }
   };
 
@@ -454,20 +581,63 @@ export default function TransferirScreen() {
       const totalAmountWithFee = +(grossAmount + platformFeeAmount).toFixed(9);
       const netAmount = grossAmount;
 
-      // Sign + Broadcast usando o preview já simulado
-      setLoadingStep(t('Assinando e enviando para a rede...'));
-      if (!preview) throw new Error(t('Dados de simulação perdidos. Tente novamente.'));
-      const result = await signAndSend(preview.transaction, signerKeypair);
-      
-      // Se não há resultado ou se o status falhou e NÃO temos hash, é erro real
-      if (!result || (result.status !== 'confirmed' && !result.hash)) {
-        throw new Error(t('Falha ao enviar transação. Verifique sua conexão e saldo.'));
-      }
+      // Sign + Broadcast — bifurca entre fluxo direto (SOL) e swap-then-send.
+      // Em ambos os casos, `result.hash` no fim é o hash do envio FINAL ao
+      // destinatário (o que pode ser conferido on-chain como prova de entrega).
+      let result: { status: string; hash: string };
+      /** Quantia que o destinatário efetivamente recebeu, na moeda recebida (SOL no caso de swap, currency no caso direto). */
+      let recipientReceivedAmount = grossAmount;
+      /** Símbolo da moeda recebida pelo destinatário. */
+      let recipientCurrency = currency;
 
-      // Se temos hash mas o status não veio 'confirmed' (raro após o patch do service), 
-      // mostramos um aviso de processamento, não um erro fatal.
-      if (result.status !== 'confirmed' && result.hash) {
-        console.warn('[transferir] Transação enviada, mas status de confirmação não recebido a tempo.');
+      if (swapQuote) {
+        setLoadingStep(t('Trocando ativo por SOL e enviando ao destinatário...'));
+        try {
+          const swapResult = await executeSwapAndSend({
+            quote: swapQuote,
+            keypair: signerKeypair,
+            recipientAddress: destAddress,
+          });
+          result = { status: 'confirmed', hash: swapResult.transferTxHash };
+          recipientReceivedAmount = Number(swapResult.solSentLamports) / 1_000_000_000;
+          recipientCurrency = 'SOL';
+        } catch (e: any) {
+          if (e instanceof TransferAfterSwapFailedError) {
+            // Swap foi pra rede mas envio do SOL ao destinatário falhou —
+            // usuário tem o SOL na carteira. Persiste em AsyncStorage pra
+            // sobreviver a fechamento do app + abre modal de recovery.
+            const recovery = {
+              swapTxHash: e.swapTxHash,
+              solLamports: e.solInWalletLamports,
+              recipientAddress: e.recipientAddress,
+            };
+            setFailedSwap(recovery);
+            if (currentUserId) {
+              await saveSwapRecovery(currentUserId, {
+                ...recovery,
+                savedAt: Date.now(),
+                originalCurrency: currency,
+                originalAmount: grossAmount,
+              });
+            }
+            setIsLoading(false);
+            setLoadingStep('');
+            setIsRecoveryModalVisible(true);
+            return; // não joga pro catch externo — recovery toma o controle
+          }
+          throw e;
+        }
+      } else {
+        setLoadingStep(t('Assinando e enviando para a rede...'));
+        if (!preview) throw new Error(t('Dados de simulação perdidos. Tente novamente.'));
+        const r = await signAndSend(preview.transaction, signerKeypair);
+        if (!r || (r.status !== 'confirmed' && !r.hash)) {
+          throw new Error(t('Falha ao enviar transação. Verifique sua conexão e saldo.'));
+        }
+        if (r.status !== 'confirmed' && r.hash) {
+          console.warn('[transferir] Transação enviada, mas status de confirmação não recebido a tempo.');
+        }
+        result = { status: r.status, hash: r.hash };
       }
 
       setLoadingStep(t('Registrando transação...'));
@@ -498,32 +668,32 @@ export default function TransferirScreen() {
         console.error('[transferir] Erro no histórico, mas fundos enviados:', saveRes.error);
       }
 
-      // 7. Notificações para o Destinatário
+      // 7. Notificações para o Destinatário — usa moeda/quantia REAIS recebidas,
+      // que diferem do que o remetente escolheu quando houve swap intermediário.
       if (destUserId) {
-        const tokenPrice = prices[currency]?.USD || 0;
-        const recvUsdVal = (netAmount * tokenPrice).toFixed(2);
-        const recvUsdStr = tokenPrice > 0 && recvUsdVal !== "0.00" ? ` (~$ ${recvUsdVal})` : '';
-        
-        // E-mail (se houver)
+        const recvTokenPrice = prices[recipientCurrency]?.USD || 0;
+        const recvUsdVal = (recipientReceivedAmount * recvTokenPrice).toFixed(2);
+        const recvUsdStr = recvTokenPrice > 0 && recvUsdVal !== "0.00" ? ` (~$ ${recvUsdVal})` : '';
+        const recvAmountStr = recipientReceivedAmount.toFixed(6).replace(/\.?0+$/, '');
+
         if (destEmail) {
           await notificationService.pushToEmail(destEmail, {
             type: 'recebimento',
             title: 'Transferência recebida',
-            description: `Você recebeu ${netAmount} ${currency} de ${senderName}.`,
-            amount: `+${netAmount}`,
-            currency: `${currency}${recvUsdStr}`,
+            description: `Você recebeu ${recvAmountStr} ${recipientCurrency} de ${senderName}.`,
+            amount: `+${recvAmountStr}`,
+            currency: `${recipientCurrency}${recvUsdStr}`,
             data: { hash: result.hash },
           });
         }
 
-        // In-app Notification para o destinatário
         await notificationService.pushNotification({
-          userId: destUserId, // Notificar o destinatário
+          userId: destUserId,
           type: 'recebimento',
           title: 'Transferência recebida',
-          description: `Você recebeu ${netAmount} ${currency} de ${senderName}.`,
-          amount: `+${netAmount}`,
-          currency: `${currency}${recvUsdStr}`,
+          description: `Você recebeu ${recvAmountStr} ${recipientCurrency} de ${senderName}.`,
+          amount: `+${recvAmountStr}`,
+          currency: `${recipientCurrency}${recvUsdStr}`,
           data: { hash: result.hash },
         });
       }
@@ -778,12 +948,28 @@ export default function TransferirScreen() {
 
                 {/* ── O Destinatário Receberá — destaque (1º) ── */}
                 <Text style={{ color: V.muted, fontSize: 12, marginBottom: 4 }}>{t('O Destinatário Receberá')}</Text>
-                 <Text style={{ color: V.text, fontFamily: F.bold, fontSize: 12, marginBottom: 4 }}>
-                   {amount} {currency}
-                 </Text>
-                 <Text style={{ color: V.success, fontFamily: F.title, fontSize: 22, marginBottom: 16 }}>
-                   {'≈ $'}{((parseFloat(amount || '0') || 0) * (prices[currency]?.USD || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                 </Text>
+                {swapQuote ? (
+                  <>
+                    <Text style={{ color: V.text, fontFamily: F.bold, fontSize: 12, marginBottom: 4 }}>
+                      {`≈ ${swapQuote.outAmountSol.toFixed(6).replace(/\.?0+$/, '')} SOL`}
+                    </Text>
+                    <Text style={{ color: V.success, fontFamily: F.title, fontSize: 22, marginBottom: 8 }}>
+                      {'≈ $'}{(swapQuote.outAmountSol * (prices['SOL']?.USD || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                    </Text>
+                    <Text style={{ color: V.muted, fontSize: 10, marginBottom: 16, fontFamily: F.semi }}>
+                      {t('Convertido automaticamente de')} {amount} {currency} {t('via swap on-chain')} · {t('slippage')} {(swapQuote.slippageBps / 100).toFixed(2)}%
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ color: V.text, fontFamily: F.bold, fontSize: 12, marginBottom: 4 }}>
+                      {amount} {currency}
+                    </Text>
+                    <Text style={{ color: V.success, fontFamily: F.title, fontSize: 22, marginBottom: 16 }}>
+                      {'≈ $'}{((parseFloat(amount || '0') || 0) * (prices[currency]?.USD || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                    </Text>
+                  </>
+                )}
 
                 {/* ── Custo Total — secundário (2º) ── */}
                 <Text style={{ color: V.muted, fontSize: 12, marginBottom: 4 }}>{t('Custo Total (Envio + Taxa 2%)')}</Text>
@@ -793,7 +979,10 @@ export default function TransferirScreen() {
               </View>
 
               <View style={styles.mSwipeArea}>
-                <TouchableOpacity onPress={() => setIsPreviewModalVisible(false)} style={styles.mCancelLink}>
+                <TouchableOpacity
+                  onPress={() => { setIsPreviewModalVisible(false); setSwapQuote(null); }}
+                  style={styles.mCancelLink}
+                >
                   <Text style={[styles.mCancelText, { color: V.danger }]}>{t('CANCELAR')}</Text>
                 </TouchableOpacity>
                 <SwipeToConfirm
@@ -852,6 +1041,92 @@ export default function TransferirScreen() {
                 onPress={() => { setIsResultModalVisible(false); if (!error) router.replace('/'); reset(); }}
               >
                 <Text style={styles.okBtnText}>{t('FECHAR')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── Recovery Modal: swap confirmou mas transfer falhou ── */}
+        <Modal visible={isRecoveryModalVisible} transparent animationType="fade">
+          <View style={styles.mOverlay}>
+            <View style={[styles.rCard, { paddingVertical: 28 }]}>
+              <View style={[styles.rIcon, { borderColor: V.gold }]}>
+                <Feather name="alert-triangle" size={36} color={V.gold} />
+              </View>
+              <Text style={[styles.rTitle, { color: V.gold, marginBottom: 6 }]}>
+                {t('SWAP CONCLUÍDO — ENVIO PENDENTE')}
+              </Text>
+              <Text style={[styles.rSub, { color: V.muted, marginBottom: 16, textAlign: 'center' }]}>
+                {t('Swap concluído mas envio do SOL ao destinatário falhou.')}{' '}
+                {t('O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.')}
+              </Text>
+
+              {failedSwap && (
+                <View style={{ width: '100%', backgroundColor: V.surface2, padding: 14, borderRadius: 10, marginBottom: 20, gap: 10 }}>
+                  <View>
+                    <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4 }}>
+                      {t('SOL AGUARDANDO REENVIO')}
+                    </Text>
+                    <Text style={{ color: V.success, fontSize: 16, fontFamily: F.title }}>
+                      {(Number(failedSwap.solLamports) / 1_000_000_000).toFixed(6).replace(/\.?0+$/, '')} SOL
+                    </Text>
+                  </View>
+
+                  <View>
+                    <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4 }}>
+                      {t('DESTINATÁRIO')}
+                    </Text>
+                    <Text style={{ color: V.text, fontSize: 11, fontFamily: F.semi }} numberOfLines={1} ellipsizeMode="middle">
+                      {failedSwap.recipientAddress}
+                    </Text>
+                  </View>
+
+                  <View>
+                    <Text style={{ color: V.muted, fontSize: 10, fontFamily: F.bold, marginBottom: 4 }}>
+                      {t('HASH DO SWAP (CONFIRMADO)')}
+                    </Text>
+                    <Text style={{ color: V.gold, fontSize: 10, fontFamily: F.semi }} numberOfLines={1} ellipsizeMode="middle">
+                      {failedSwap.swapTxHash}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.okBtn, { backgroundColor: V.gold, marginBottom: 10 }]}
+                onPress={handleRetrySwapTransfer}
+              >
+                <Text style={styles.okBtnText}>{t('REENVIAR SOL')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setIsRecoveryModalVisible(false); }}
+                style={{ marginBottom: 8 }}
+              >
+                <Text style={[styles.mCancelText, { color: V.muted }]}>{t('FECHAR (REENVIAR DEPOIS)')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    t('Dispensar pendência?'),
+                    t('Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.'),
+                    [
+                      { text: t('CANCELAR'), style: 'cancel' },
+                      {
+                        text: t('DISPENSAR'),
+                        style: 'destructive',
+                        onPress: async () => {
+                          if (currentUserId) await clearSwapRecovery(currentUserId);
+                          setFailedSwap(null);
+                          setIsRecoveryModalVisible(false);
+                        },
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Text style={[styles.mCancelText, { color: V.danger, fontSize: 11 }]}>
+                  {t('JÁ RESOLVI POR FORA — DISPENSAR')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

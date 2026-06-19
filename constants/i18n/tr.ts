@@ -904,4 +904,30 @@ export const tr: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'ANA SAYFAYA DÖN',
   'VOLTAR PARA INÍCIO': 'ANA SAYFAYA DÖN',
   'Wallet não encontrada. Reconecte sua carteira.': 'Cüzdan bulunamadı. Cüzdanınızı yeniden bağlayın.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Varlık SOL\'a takas ediliyor ve alıcıya gönderiliyor...',
+  'Convertido automaticamente de': 'Otomatik dönüştürüldü',
+  'via swap on-chain': 'zincir üstü takas ile',
+  'slippage': 'kayma',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Takas tamamlandı ancak alıcıya SOL gönderimi başarısız.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Alınan SOL cüzdanınızda — alıcıya manuel olarak yeniden göndermeyi deneyin.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'SOL alıcıya yeniden gönderiliyor...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Kurtarma durumu kayboldu. Ekranı yeniden açın ve göndermeyi baştan deneyin.',
+  'Reenvio falhou': 'Yeniden gönderme başarısız',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Şu anda SOL yeniden gönderilemedi. Lütfen biraz sonra tekrar deneyin.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'TAKAS TAMAMLANDI — GÖNDERİM BEKLEMEDE',
+  'SOL AGUARDANDO REENVIO': 'YENİDEN GÖNDERİLECEK SOL',
+  'DESTINATÁRIO': 'ALICI',
+  'HASH DO SWAP (CONFIRMADO)': 'TAKAS HASHİ (ONAYLANDI)',
+  'REENVIAR SOL': 'SOL\'U YENİDEN GÖNDER',
+  'FECHAR (REENVIAR DEPOIS)': 'KAPAT (DAHA SONRA GÖNDER)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Bekleyen iptal edilsin mi?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Bu göndermeyi başka bir yoldan zaten çözdüğünüzü onaylıyor musunuz? Bu bekleyen öğe silinecek ve tekrar görünmeyecek.',
+  'DISPENSAR': 'İPTAL ET',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'DIŞARIDAN ZATEN ÇÖZÜLDÜ — İPTAL ET',
 };

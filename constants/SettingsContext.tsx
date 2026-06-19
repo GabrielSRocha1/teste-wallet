@@ -939,6 +939,32 @@ const translations: Record<Language, Record<string, string>> = {
     'VOLTAR AO INÍCIO': 'VOLTAR AO INÍCIO',
     'VOLTAR PARA INÍCIO': 'VOLTAR PARA INÍCIO',
     'Wallet não encontrada. Reconecte sua carteira.': 'Wallet não encontrada. Reconecte sua carteira.',
+  
+    // ---- Auto-added swap-then-send keys ----
+    'Trocando ativo por SOL e enviando ao destinatário...': 'Trocando ativo por SOL e enviando ao destinatário...',
+    'Convertido automaticamente de': 'Convertido automaticamente de',
+    'via swap on-chain': 'via swap on-chain',
+    'slippage': 'slippage',
+    'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap concluído mas envio do SOL ao destinatário falhou.',
+    'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.',
+  
+    // ---- Auto-added recovery UI keys ----
+    'Reenviando SOL ao destinatário...': 'Reenviando SOL ao destinatário...',
+    'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Estado de recovery perdido. Reabra a tela e tente o envio do zero.',
+    'Reenvio falhou': 'Reenvio falhou',
+    'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Não foi possível reenviar o SOL agora. Tente novamente em instantes.',
+    'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP CONCLUÍDO — ENVIO PENDENTE',
+    'SOL AGUARDANDO REENVIO': 'SOL AGUARDANDO REENVIO',
+    'DESTINATÁRIO': 'DESTINATÁRIO',
+    'HASH DO SWAP (CONFIRMADO)': 'HASH DO SWAP (CONFIRMADO)',
+    'REENVIAR SOL': 'REENVIAR SOL',
+    'FECHAR (REENVIAR DEPOIS)': 'FECHAR (REENVIAR DEPOIS)',
+  
+    // ---- Auto-added recovery dismiss keys ----
+    'Dispensar pendência?': 'Dispensar pendência?',
+    'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.',
+    'DISPENSAR': 'DISPENSAR',
+    'JÁ RESOLVI POR FORA — DISPENSAR': 'JÁ RESOLVI POR FORA — DISPENSAR',
   },
   en: {
     // Menu & Navigation
@@ -1837,6 +1863,32 @@ const translations: Record<Language, Record<string, string>> = {
     'VOLTAR AO INÍCIO': 'BACK TO HOME',
     'VOLTAR PARA INÍCIO': 'BACK TO HOME',
     'Wallet não encontrada. Reconecte sua carteira.': 'Wallet not found. Reconnect your wallet.',
+  
+    // ---- Auto-added swap-then-send keys ----
+    'Trocando ativo por SOL e enviando ao destinatário...': 'Swapping asset to SOL and sending to recipient...',
+    'Convertido automaticamente de': 'Auto-converted from',
+    'via swap on-chain': 'via on-chain swap',
+    'slippage': 'slippage',
+    'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap completed but sending SOL to recipient failed.',
+    'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'The received SOL is in your wallet — try resending manually to the recipient.',
+  
+    // ---- Auto-added recovery UI keys ----
+    'Reenviando SOL ao destinatário...': 'Resending SOL to recipient...',
+    'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Recovery state lost. Reopen the screen and try the send again from scratch.',
+    'Reenvio falhou': 'Resend failed',
+    'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'Could not resend SOL right now. Please try again in a moment.',
+    'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP COMPLETED — SEND PENDING',
+    'SOL AGUARDANDO REENVIO': 'SOL AWAITING RESEND',
+    'DESTINATÁRIO': 'RECIPIENT',
+    'HASH DO SWAP (CONFIRMADO)': 'SWAP HASH (CONFIRMED)',
+    'REENVIAR SOL': 'RESEND SOL',
+    'FECHAR (REENVIAR DEPOIS)': 'CLOSE (RESEND LATER)',
+  
+    // ---- Auto-added recovery dismiss keys ----
+    'Dispensar pendência?': 'Dismiss pending?',
+    'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Confirm that you already resolved this transfer through another channel? This pending item will be deleted and won\'t appear again.',
+    'DISPENSAR': 'DISMISS',
+    'JÁ RESOLVI POR FORA — DISPENSAR': 'ALREADY RESOLVED EXTERNALLY — DISMISS',
   },
   es: {
     // Menu & Navigation
@@ -2735,6 +2787,32 @@ const translations: Record<Language, Record<string, string>> = {
     'VOLTAR AO INÍCIO': 'VOLVER AL INICIO',
     'VOLTAR PARA INÍCIO': 'VOLVER AL INICIO',
     'Wallet não encontrada. Reconecte sua carteira.': 'Cartera no encontrada. Vuelve a conectar tu cartera.',
+  
+    // ---- Auto-added swap-then-send keys ----
+    'Trocando ativo por SOL e enviando ao destinatário...': 'Intercambiando activo por SOL y enviando al destinatario...',
+    'Convertido automaticamente de': 'Convertido automáticamente de',
+    'via swap on-chain': 'vía swap on-chain',
+    'slippage': 'slippage',
+    'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap completado pero el envío de SOL al destinatario falló.',
+    'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'El SOL recibido está en tu cartera — intenta reenviar manualmente al destinatario.',
+  
+    // ---- Auto-added recovery UI keys ----
+    'Reenviando SOL ao destinatário...': 'Reenviando SOL al destinatario...',
+    'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Estado de recuperación perdido. Reabre la pantalla e inténtalo de nuevo desde cero.',
+    'Reenvio falhou': 'Reenvío fallido',
+    'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'No se pudo reenviar SOL ahora. Intenta nuevamente en unos instantes.',
+    'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP COMPLETADO — ENVÍO PENDIENTE',
+    'SOL AGUARDANDO REENVIO': 'SOL ESPERANDO REENVÍO',
+    'DESTINATÁRIO': 'DESTINATARIO',
+    'HASH DO SWAP (CONFIRMADO)': 'HASH DEL SWAP (CONFIRMADO)',
+    'REENVIAR SOL': 'REENVIAR SOL',
+    'FECHAR (REENVIAR DEPOIS)': 'CERRAR (REENVIAR DESPUÉS)',
+  
+    // ---- Auto-added recovery dismiss keys ----
+    'Dispensar pendência?': '¿Descartar pendiente?',
+    'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': '¿Confirmas que ya resolviste este envío por otro medio? Esta pendiente se eliminará y no volverá a aparecer.',
+    'DISPENSAR': 'DESCARTAR',
+    'JÁ RESOLVI POR FORA — DISPENSAR': 'YA RESOLVÍ POR FUERA — DESCARTAR',
   }
 };
 

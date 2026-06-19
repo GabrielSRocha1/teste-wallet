@@ -915,4 +915,30 @@ export const de: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'ZURÜCK ZUM START',
   'VOLTAR PARA INÍCIO': 'ZURÜCK ZUM START',
   'Wallet não encontrada. Reconecte sua carteira.': 'Wallet nicht gefunden. Verbinden Sie Ihre Wallet erneut.',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'Asset wird in SOL getauscht und an Empfänger gesendet...',
+  'Convertido automaticamente de': 'Automatisch konvertiert von',
+  'via swap on-chain': 'via On-Chain-Swap',
+  'slippage': 'Slippage',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'Swap abgeschlossen, aber Senden von SOL an Empfänger fehlgeschlagen.',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'Das empfangene SOL ist in Ihrer Wallet — versuchen Sie, es manuell an den Empfänger zu senden.',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'SOL wird erneut an Empfänger gesendet...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'Recovery-Status verloren. Öffnen Sie den Bildschirm erneut und versuchen Sie den Versand von vorne.',
+  'Reenvio falhou': 'Erneuter Versand fehlgeschlagen',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'SOL konnte gerade nicht erneut gesendet werden. Bitte versuchen Sie es in einem Moment erneut.',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'SWAP ABGESCHLOSSEN — VERSAND AUSSTEHEND',
+  'SOL AGUARDANDO REENVIO': 'SOL WARTET AUF ERNEUTEN VERSAND',
+  'DESTINATÁRIO': 'EMPFÄNGER',
+  'HASH DO SWAP (CONFIRMADO)': 'SWAP-HASH (BESTÄTIGT)',
+  'REENVIAR SOL': 'SOL ERNEUT SENDEN',
+  'FECHAR (REENVIAR DEPOIS)': 'SCHLIESSEN (SPÄTER ERNEUT SENDEN)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'Ausstehenden Eintrag verwerfen?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'Bestätigen Sie, dass Sie diesen Versand auf andere Weise bereits gelöst haben? Dieser ausstehende Eintrag wird gelöscht und erscheint nicht erneut.',
+  'DISPENSAR': 'VERWERFEN',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'BEREITS EXTERN GELÖST — VERWERFEN',
 };

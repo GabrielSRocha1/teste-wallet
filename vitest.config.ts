@@ -10,6 +10,13 @@ export default defineConfig({
       '@': root,
     },
   },
+  // React Native injeta __DEV__ em compile-time. Sob node/vitest, ele é
+  // undefined e qualquer `if (__DEV__) ...` quebra com ReferenceError. Defino
+  // como `false` (mode de "produção") nos testes — o lado importante é que
+  // exista, não o valor.
+  define: {
+    __DEV__: 'false',
+  },
   test: {
     environment: 'node',
     globals: false,

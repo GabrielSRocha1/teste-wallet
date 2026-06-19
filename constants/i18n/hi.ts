@@ -904,4 +904,30 @@ export const hi: Record<string, string> = {
   'VOLTAR AO INÍCIO': 'होम पर वापस जाएँ',
   'VOLTAR PARA INÍCIO': 'होम पर वापस जाएँ',
   'Wallet não encontrada. Reconecte sua carteira.': 'वॉलेट नहीं मिला। अपना वॉलेट फिर से कनेक्ट करें।',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': 'संपत्ति को SOL में बदलकर प्राप्तकर्ता को भेजा जा रहा है...',
+  'Convertido automaticamente de': 'से स्वचालित रूप से रूपांतरित',
+  'via swap on-chain': 'ऑन-चेन स्वैप के माध्यम से',
+  'slippage': 'स्लिपेज',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': 'स्वैप पूर्ण लेकिन प्राप्तकर्ता को SOL भेजना विफल।',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': 'प्राप्त SOL आपके वॉलेट में है — मैन्युअल रूप से प्राप्तकर्ता को पुनः भेजने का प्रयास करें।',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': 'प्राप्तकर्ता को SOL पुनः भेजा जा रहा है...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': 'रिकवरी स्थिति खो गई। स्क्रीन फिर से खोलें और शुरुआत से भेजना पुनः प्रयास करें।',
+  'Reenvio falhou': 'पुनः भेजना विफल',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': 'अभी SOL पुनः नहीं भेज सकते। कृपया कुछ क्षणों में पुनः प्रयास करें।',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': 'स्वैप पूर्ण — भेजना लंबित',
+  'SOL AGUARDANDO REENVIO': 'पुनः भेजने की प्रतीक्षा में SOL',
+  'DESTINATÁRIO': 'प्राप्तकर्ता',
+  'HASH DO SWAP (CONFIRMADO)': 'स्वैप हैश (पुष्टि)',
+  'REENVIAR SOL': 'SOL पुनः भेजें',
+  'FECHAR (REENVIAR DEPOIS)': 'बंद करें (बाद में भेजें)',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': 'लंबित खारिज करें?',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': 'पुष्टि करें कि आपने यह भेजना पहले से किसी अन्य माध्यम से सुलझा लिया है? यह लंबित आइटम हटा दिया जाएगा और दोबारा नहीं दिखेगा।',
+  'DISPENSAR': 'खारिज करें',
+  'JÁ RESOLVI POR FORA — DISPENSAR': 'बाहर पहले ही हल — खारिज करें',
 };

@@ -904,4 +904,30 @@ export const zh: Record<string, string> = {
   'VOLTAR AO INÍCIO': '返回首页',
   'VOLTAR PARA INÍCIO': '返回首页',
   'Wallet não encontrada. Reconecte sua carteira.': '未找到钱包。请重新连接您的钱包。',
+
+  // ---- Auto-added swap-then-send keys ----
+  'Trocando ativo por SOL e enviando ao destinatário...': '正在将资产兑换为 SOL 并发送给收款人...',
+  'Convertido automaticamente de': '自动转换自',
+  'via swap on-chain': '通过链上兑换',
+  'slippage': '滑点',
+  'Swap concluído mas envio do SOL ao destinatário falhou.': '兑换完成，但向收款人发送 SOL 失败。',
+  'O SOL recebido está na sua carteira — tente reenviar manualmente para o destinatário.': '收到的 SOL 在您的钱包中——请尝试手动重新发送给收款人。',
+
+  // ---- Auto-added recovery UI keys ----
+  'Reenviando SOL ao destinatário...': '正在将 SOL 重新发送给收款人...',
+  'Estado de recovery perdido. Reabra a tela e tente o envio do zero.': '恢复状态已丢失。请重新打开屏幕，从头重试发送。',
+  'Reenvio falhou': '重新发送失败',
+  'Não foi possível reenviar o SOL agora. Tente novamente em instantes.': '目前无法重新发送 SOL。请稍后再试。',
+  'SWAP CONCLUÍDO — ENVIO PENDENTE': '兑换完成——发送待处理',
+  'SOL AGUARDANDO REENVIO': '等待重新发送的 SOL',
+  'DESTINATÁRIO': '收款人',
+  'HASH DO SWAP (CONFIRMADO)': '兑换哈希（已确认）',
+  'REENVIAR SOL': '重新发送 SOL',
+  'FECHAR (REENVIAR DEPOIS)': '关闭（稍后重新发送）',
+
+  // ---- Auto-added recovery dismiss keys ----
+  'Dispensar pendência?': '忽略待处理项？',
+  'Confirma que já resolveu este envio por outro meio? Esta pendência será apagada e não voltará a aparecer.': '确认您已通过其他方式解决了此次发送？此待处理项将被删除，不会再出现。',
+  'DISPENSAR': '忽略',
+  'JÁ RESOLVI POR FORA — DISPENSAR': '已在外部解决——忽略',
 };
