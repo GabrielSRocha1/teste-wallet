@@ -1,0 +1,20 @@
+{
+  "name": "Verum Compound Engine",
+  "short_name": "Verum",
+  "description": "Calculadora institucional de acumulacao e juros compostos para tokens Solana",
+  "start_url": "/preview.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#060912",
+  "theme_color": "#D4AF37",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

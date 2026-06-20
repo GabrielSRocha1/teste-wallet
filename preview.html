@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Verum Compound Engine</title>
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#D4AF37"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Verum"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<link rel="icon" type="image/svg+xml" href="/icon.svg"/>
+<link rel="apple-touch-icon" href="/icon.svg"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#D4AF37;--gold-l:#F0D060;--gold-d:#B8960C;
+  --neon:#00FF9C;--blue:#00D4FF;--red:#FF4757;--yellow:#FFD700;
+  --bg:#02040A;--c1:#060912;--c2:#0A0F1E;--c3:#0F1629;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:#fff;font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--c1)}
+::-webkit-scrollbar-thumb{background:rgba(212,175,55,.3);border-radius:3px}
+.grid-bg{background-image:linear-gradient(rgba(212,175,55,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,.025) 1px,transparent 1px);background-size:50px 50px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+.card{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));backdrop-filter:blur(20px);border:1px solid rgba(212,175,55,.15);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);min-width:0}
+.gold{background:linear-gradient(135deg,var(--gold),var(--gold-l),var(--gold-d));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.neon{color:var(--neon);text-shadow:0 0 10px rgba(0,255,156,.4)}
+.blu{color:var(--blue)}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:100;background:rgba(2,4,10,.95);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);padding:12px 0}
+.hdr{display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--gold),var(--gold-l));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.logo-t1{font-size:13px;font-weight:800}
+.logo-t2{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.15em;text-transform:uppercase}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:13px;color:rgba(255,255,255,.7)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--neon);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,156,.5)}50%{box-shadow:0 0 0 6px rgba(0,255,156,0)}}
+.net-badge{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 10px;font-size:13px;color:#fff}
+
+/* HERO */
+.hero{text-align:center;padding:32px 0 24px}
+.hero-badge{display:inline-flex;align-items:center;background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.25);border-radius:100px;padding:5px 14px;font-size:11px;color:var(--gold);font-weight:500;margin-bottom:16px}
+.hero h1{font-size:clamp(24px,4.5vw,46px);font-weight:900;line-height:1.1;margin-bottom:10px}
+.hero p{color:rgba(255,255,255,.75);font-size:15px;max-width:560px;margin:0 auto;line-height:1.5}
+
+/* ATIVO SELECTOR — hero section */
+.ativo-selector{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:24px 0 8px}
+.ativo-btn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 20px;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .25s;min-width:140px;position:relative}
+.ativo-btn:hover{border-color:rgba(212,175,55,.4);background:rgba(212,175,55,.05);transform:translateY(-2px)}
+.ativo-btn.selected{border-color:var(--gold);background:rgba(212,175,55,.1);box-shadow:0 0 25px rgba(212,175,55,.2)}
+.ativo-btn .check{position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .2s}
+.ativo-btn.selected .check{background:var(--gold);border-color:var(--gold);color:#000;font-weight:900}
+.ativo-btn .ab-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.15);flex-shrink:0}
+.ativo-btn .ab-name{font-size:15px;font-weight:700;max-width:100%;overflow-wrap:anywhere;word-break:break-word;text-align:center}
+.ativo-btn .ab-sym{font-size:12px;color:rgba(255,255,255,.5);font-family:'JetBrains Mono',monospace;max-width:100%;overflow-wrap:anywhere}
+.ativo-btn .ab-price{font-size:14px;font-family:'JetBrains Mono',monospace;font-weight:600;max-width:100%;overflow-wrap:anywhere;word-break:break-all;text-align:center;line-height:1.2}
+.ativo-btn .ab-chg{font-size:12px;font-weight:600;max-width:100%}
+/* Badge estilo Solflare para variação % */
+.pct-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;letter-spacing:-.01em;line-height:1;white-space:nowrap}
+.pct-badge.up{background:rgba(20,241,149,.12);color:#14F195}
+.pct-badge.down{background:rgba(255,80,80,.12);color:#FF5050}
+.pct-badge.flat{background:rgba(255,255,255,.06);color:rgba(255,255,255,.4)}
+.pct-badge svg{width:9px;height:9px;flex-shrink:0}
+.pct-badge.lg{font-size:16px;padding:5px 11px;gap:5px}
+.pct-badge.lg svg{width:11px;height:11px}
+.selected-banner{text-align:center;padding:10px;margin-bottom:6px}
+.selected-banner span{font-size:14px;color:var(--gold);background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.25);border-radius:8px;padding:5px 14px}
+
+/* NAV */
+nav{display:flex;gap:3px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:4px;margin-bottom:26px;overflow-x:auto}
+nav::-webkit-scrollbar{display:none}
+.nb{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:10px 12px;border-radius:9px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;background:none;color:rgba(255,255,255,.6);font-family:'Inter',sans-serif}
+.nb:hover{background:rgba(255,255,255,.05);color:#fff}
+.nb.active{background:var(--gold);color:#02040A;font-weight:700;box-shadow:0 0 15px rgba(212,175,55,.3)}
+
+/* SECTION */
+.sec{display:none;animation:fadeUp .35s ease}
+.sec.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.sec-hdr{margin-bottom:20px}
+.sec-badge{font-size:9px;font-weight:700;color:rgba(212,175,55,.7);letter-spacing:.2em;text-transform:uppercase;margin-bottom:3px}
+.sec-hdr h2{font-size:21px;font-weight:800}
+.sec-hdr p{font-size:14px;color:rgba(255,255,255,.75);margin-top:5px;line-height:1.5}
+
+/* ATIVO INFO BAR */
+.ativo-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.2);margin-bottom:20px;flex-wrap:wrap}
+.ativo-bar>div{min-width:0;max-width:100%}
+.ab-tag{font-size:12px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.08em}
+.ab-val{font-size:clamp(13px,3.2vw,15px);font-weight:700;font-family:'JetBrains Mono',monospace;overflow-wrap:anywhere;word-break:break-word}
+.ab-sep{width:1px;height:24px;background:rgba(255,255,255,.1);flex-shrink:0}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:18px}
+.kpi{padding:14px 16px;min-width:0;overflow:hidden}
+.kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:#fff;margin-bottom:7px;opacity:.75;overflow-wrap:anywhere}
+.kpi-val{font-size:clamp(16px,4.6vw,23px);font-weight:700;font-family:'JetBrains Mono',monospace;min-width:0;overflow-wrap:anywhere;word-break:break-word;line-height:1.15}
+.kpi-sub{font-size:12px;color:rgba(255,255,255,.75);margin-top:4px;overflow-wrap:anywhere}
+
+/* PARAMS */
+.pcard{padding:18px;margin-bottom:18px}
+.ptitle{font-size:10px;font-weight:600;color:var(--gold);text-transform:uppercase;letter-spacing:.15em;margin-bottom:14px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:14px}
+.param{display:flex;flex-direction:column;gap:5px;min-width:0}
+.param label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#fff;opacity:.9}
+.param input[type=number]{background:rgba(255,255,255,.05);border:1px solid rgba(212,175,55,.25);border-radius:9px;color:#fff;font-family:'JetBrains Mono',monospace;font-size:15px;padding:10px 12px;width:100%;outline:none;transition:all .2s}
+.param input[type=number]:focus{border-color:rgba(212,175,55,.7);background:rgba(255,255,255,.08);box-shadow:0 0 0 3px rgba(212,175,55,.1)}
+.param input[type=number][readonly]{background:rgba(212,175,55,.05);border-color:rgba(212,175,55,.35);color:var(--gold-l);cursor:default}
+.param input[type=range]{-webkit-appearance:none;appearance:none;height:3px;background:rgba(255,255,255,.12);border-radius:2px;outline:none;margin-top:2px}
+.param input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-l));cursor:pointer;box-shadow:0 0 8px rgba(212,175,55,.5)}
+.pval{font-size:12px;color:rgba(255,255,255,.85);font-family:'JetBrains Mono',monospace;text-align:right}
+.param-readonly-badge{font-size:11px;color:var(--gold);background:rgba(212,175,55,.1);border-radius:4px;padding:2px 7px;align-self:flex-start}
+
+/* CHART */
+.ccard{padding:18px;margin-bottom:18px}
+.ctitle{font-size:11px;font-weight:600;color:#fff;text-transform:uppercase;letter-spacing:.15em;margin-bottom:14px}
+.cwrap{position:relative;height:230px}
+
+/* INSIGHT */
+.insight{padding:13px 16px;border-radius:10px;font-size:13px;line-height:1.65;margin-top:14px}
+.ig{background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.2);color:rgba(255,255,255,.85)}
+.ir{background:rgba(255,71,87,.05);border:1px solid rgba(255,71,87,.2);color:rgba(255,255,255,.85)}
+.in{background:rgba(0,255,156,.04);border:1px solid rgba(0,255,156,.15);color:rgba(255,255,255,.85)}
+
+/* STRATEGY CARDS */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:18px}
+.sc{padding:13px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);min-width:0;overflow:hidden}
+.sc.best{border-color:rgba(212,175,55,.4);background:rgba(212,175,55,.05)}
+.sname{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;color:#fff}
+.sc.best .sname{color:var(--gold)}
+.srow{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;flex-wrap:wrap}
+.slbl{font-size:11px;color:rgba(255,255,255,.75);flex-shrink:0}
+.sval{font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;color:#fff;text-align:right;overflow-wrap:anywhere;word-break:break-all;min-width:0}
+.sdiff{font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.07);overflow-wrap:anywhere;word-break:break-word}
+
+/* TOGGLE */
+.tog-row{display:flex;align-items:center;gap:10px;padding:9px;background:rgba(255,255,255,.03);border-radius:9px;border:1px solid rgba(255,255,255,.08);cursor:pointer}
+.tog{width:38px;height:19px;border-radius:10px;background:rgba(255,255,255,.12);position:relative;transition:all .2s;flex-shrink:0}
+.tog.on{background:var(--gold)}
+.tog-thumb{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tog.on .tog-thumb{left:21px}
+.tog-lbl{font-size:14px;color:#fff}
+
+/* EXPORT */
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.eb{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;color:#fff}
+.eb:hover{transform:translateY(-2px)}
+.eb-icon{font-size:22px}
+.eb-lbl{font-size:14px;font-weight:600}
+.eb-sub{font-size:12px;opacity:.75;text-align:center}
+.eg{border-color:rgba(0,255,156,.35);color:var(--neon)}.eg:hover{background:rgba(0,255,156,.08)}
+.egd{border-color:rgba(212,175,55,.35);color:var(--gold)}.egd:hover{background:rgba(212,175,55,.08)}
+.eb2{border-color:rgba(0,212,255,.35);color:var(--blue)}.eb2:hover{background:rgba(0,212,255,.08)}
+.ep{border-color:rgba(155,89,255,.35);color:#9B59FF}.ep:hover{background:rgba(155,89,255,.08)}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}
+.si{background:rgba(255,255,255,.03);border-radius:10px;padding:10px;min-width:0;overflow:hidden}
+.si-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#fff;opacity:.75;margin-bottom:4px;overflow-wrap:anywhere}
+.si-val{font-size:clamp(12px,3vw,14px);font-family:'JetBrains Mono',monospace;font-weight:600;overflow-wrap:anywhere;word-break:break-all}
+
+/* GRID */
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){
+  .g2{grid-template-columns:1fr}
+  .ativo-btn{min-width:0;flex:1 1 calc(50% - 12px);padding:11px 10px}
+  .ativo-selector{gap:8px}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px}
+  .kpi{padding:12px}
+  .ativo-bar{gap:8px;padding:10px 12px}
+  .ab-sep{display:none}
+  .sgrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:380px){
+  .ativo-btn{flex:1 1 100%}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .sgrid{grid-template-columns:1fr}
+  .sum-grid{grid-template-columns:1fr 1fr}
+}
+
+/* FOOTER */
+footer{margin-top:36px;padding:18px 0;border-top:1px solid rgba(255,255,255,.05);text-align:center;font-size:12px;color:rgba(255,255,255,.35);line-height:2}
+
+/* AMBIENT */
+.amb1{position:fixed;top:0;left:50%;transform:translateX(-50%);width:700px;height:300px;background:rgba(212,175,55,.04);filter:blur(100px);pointer-events:none;z-index:0}
+.amb2{position:fixed;bottom:0;right:0;width:500px;height:300px;background:rgba(0,255,156,.025);filter:blur(90px);pointer-events:none;z-index:0}
+.rel{position:relative;z-index:1}
+
+/* PDF hidden layer */
+#pdf-render{position:absolute;left:-9999px;top:0;width:800px;background:#02040A;color:#fff;padding:40px;font-family:'Inter',sans-serif}
+</style>
+</head>
+<body class="grid-bg">
+<div class="amb1"></div><div class="amb2"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="wrap hdr rel">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        <div class="logo-t1 gold">VERUM</div>
+        <div class="logo-t2">Compound Engine</div>
+      </div>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div><span>LIVE</span><span id="clock" class="mono" style="font-size:12px;margin-left:4px"></span></div>
+    <div class="net-badge"><div style="width:5px;height:5px;border-radius:50%;background:var(--neon)"></div>Solana</div>
+  </div>
+</header>
+
+<div class="wrap rel">
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">✦ Selecione um ativo para iniciar a simulação</div>
+    <h1>O Poder dos <span class="gold">Juros Compostos</span><br>no Mercado Crypto</h1>
+    <p>Escolha o ativo abaixo. Todos os dados, cálculos e projeções serão baseados exclusivamente no ativo selecionado.</p>
+
+    <!-- ATIVO SELECTOR -->
+    <div class="ativo-selector" id="ativo-selector"></div>
+    <div class="selected-banner" id="sel-banner" style="display:none">
+      <span id="sel-banner-text"></span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <nav>
+    <button class="nb active" onclick="showSec('dashboard',this)">📊 Dashboard</button>
+    <button class="nb" onclick="showSec('simulator',this)">🧮 Simulador</button>
+    <button class="nb" onclick="showSec('strategies',this)">⚖️ Estratégias</button>
+    <button class="nb" onclick="showSec('community',this)">👥 Comunidade</button>
+    <button class="nb" onclick="showSec('projection',this)">📅 10 Anos</button>
+    <button class="nb" onclick="showSec('export',this)">📤 Exportar PDF</button>
+  </nav>
+
+  <!-- ========== DASHBOARD ========== -->
+  <div id="sec-dashboard" class="sec active">
+    <div class="sec-hdr">
+      <div class="sec-badge">ATIVO SELECIONADO</div>
+      <h2 id="dash-title">Selecione um ativo acima</h2>
+      <p id="dash-sub">Clique em um dos ativos no topo para carregar todos os dados</p>
+    </div>
+    <div id="dash-content" style="display:none">
+      <div class="ativo-bar" id="ativo-bar"></div>
+      <div class="kpi-grid">
+        <div class="card kpi"><div class="kpi-lbl">Preço Atual</div><div class="kpi-val" style="color:var(--yellow)" id="d-price">—</div><div class="kpi-sub">USD por ativo</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Market Cap</div><div class="kpi-val gold" id="d-mcap">—</div><div class="kpi-sub">capitalização total</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Volume 24h</div><div class="kpi-val blu" id="d-vol">—</div><div class="kpi-sub">negociado hoje</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Holders</div><div class="kpi-val" style="color:#9B59FF" id="d-holders">—</div><div class="kpi-sub">investidores</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Liquidez</div><div class="kpi-val neon" id="d-liq">—</div><div class="kpi-sub">pool de liquidez</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Variação 24h</div><div class="kpi-val" id="d-chg">—</div><div class="kpi-sub">últimas 24 horas</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Supply Total</div><div class="kpi-val" style="color:rgba(255,255,255,.8)" id="d-supply">—</div><div class="kpi-sub">ativos emitidos</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Supply Circulante</div><div class="kpi-val" style="color:rgba(255,255,255,.8)" id="d-circ">—</div><div class="kpi-sub">em circulação</div></div>
+      </div>
+      <div class="ccard card">
+        <div class="ctitle">📈 Variação de Preço Simulada (últimas 24h)</div>
+        <div class="cwrap"><canvas id="dashChart"></canvas></div>
+      </div>
+    </div>
+    <div id="dash-empty" class="insight ig" style="margin-top:0">
+      👆 Selecione um dos ativos no topo da página para carregar o dashboard completo com todos os dados em tempo real.
+    </div>
+  </div>
+
+  <!-- ========== SIMULATOR ========== -->
+  <div id="sec-simulator" class="sec">
+    <div class="sec-hdr">
+      <div class="sec-badge">DCA ENGINE</div>
+      <h2>Simulador de Acumulação</h2>
+      <p id="sim-sub">Selecione um ativo para iniciar</p>
+    </div>
+    <div id="sim-noativo" class="insight ig">👆 Selecione um ativo no topo da página para carregar o simulador.</div>
+    <div id="sim-content" style="display:none">
+      <div class="ativo-bar" id="sim-bar"></div>
+      <div class="kpi-grid">
+        <div class="card kpi"><div class="kpi-lbl">Ativos Acumulados</div><div class="kpi-val" style="color:var(--gold)" id="k-ativos">—</div><div class="kpi-sub">quantidade total</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Preço Médio</div><div class="kpi-val blu" id="k-avgprice">—</div><div class="kpi-sub">por ativo</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Patrimônio Futuro</div><div class="kpi-val neon" id="k-portfolio">—</div><div class="kpi-sub">projetado em USD</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Retorno Estimado</div><div class="kpi-val neon" id="k-profit">—</div><div class="kpi-sub" id="k-profit-usd">—</div></div>
+      </div>
+      <div class="card pcard">
+        <div class="ptitle">⚙️ Parâmetros da Simulação</div>
+        <div class="pgrid">
+          <div class="param">
+            <label>Ativo Selecionado</label>
+            <input type="text" id="sp-ativo" readonly style="background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.35);border-radius:9px;color:var(--gold-l);font-family:'JetBrains Mono',monospace;font-size:15px;padding:10px 12px;width:100%;outline:none">
+          </div>
+          <div class="param">
+            <label>Preço Atual (auto) <span class="param-readonly-badge">AUTO</span></label>
+            <input type="number" id="sp-price" readonly step="any">
+          </div>
+          <div class="param">
+            <label>Valor Inicial (USD)</label>
+            <input type="number" id="sp-initial" value="500" min="0" oninput="syncR(this,'sr-initial');runSim()">
+            <input type="range" id="sr-initial" value="500" min="0" max="5000" oninput="syncI(this,'sp-initial');runSim()">
+            <div class="pval" id="pv-initial">$500</div>
+          </div>
+          <div class="param">
+            <label>Aporte Mensal (USD)</label>
+            <input type="number" id="sp-monthly" value="100" min="0" oninput="syncR(this,'sr-monthly');runSim()">
+            <input type="range" id="sr-monthly" value="100" min="0" max="1000" oninput="syncI(this,'sp-monthly');runSim()">
+            <div class="pval" id="pv-monthly">$100</div>
+          </div>
+          <div class="param">
+            <label>Período (meses)</label>
+            <input type="number" id="sp-months" value="24" min="1" max="120" oninput="syncR(this,'sr-months');runSim()">
+            <input type="range" id="sr-months" value="24" min="1" max="120" oninput="syncI(this,'sp-months');runSim()">
+            <div class="pval" id="pv-months">24 meses</div>
+          </div>
+          <div class="param">
+            <label>Crescimento Mensal (%)</label>
+            <input type="number" id="sp-growth" value="10" min="0" max="200" oninput="syncR(this,'sr-growth');runSim()">
+            <input type="range" id="sr-growth" value="10" min="0" max="100" oninput="syncI(this,'sp-growth');runSim()">
+            <div class="pval" id="pv-growth">10%</div>
+          </div>
+          <div class="param">
+            <label>Supply Total (auto) <span class="param-readonly-badge">AUTO</span></label>
+            <input type="number" id="sp-supply" readonly>
+          </div>
+          <div class="param">
+            <label>Reinvestimento</label>
+            <div class="tog-row" onclick="toggleReinvest()">
+              <div class="tog on" id="reinvest-tog"><div class="tog-thumb"></div></div>
+              <span class="tog-lbl">Reinvestimento automático</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card ccard">
+        <div class="ctitle">📈 Crescimento Exponencial do Patrimônio</div>
+        <div class="cwrap"><canvas id="simChart"></canvas></div>
+        <div class="insight ig" id="sim-insight" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== STRATEGIES ========== -->
+  <div id="sec-strategies" class="sec">
+    <div class="sec-hdr">
+      <div class="sec-badge">ANALYSIS</div>
+      <h2>Comparação de Estratégias</h2>
+      <p>Compra imediata vs parcelada — o custo real de esperar</p>
+    </div>
+    <div id="strat-noativo" class="insight ig">👆 Selecione um ativo no topo da página.</div>
+    <div id="strat-content" style="display:none">
+      <div class="ativo-bar" id="strat-bar"></div>
+      <div class="card pcard">
+        <div class="ptitle">⚙️ Parâmetros</div>
+        <div class="pgrid">
+          <div class="param">
+            <label>Orçamento Total (USD) <span class="param-readonly-badge">AUTO</span></label>
+            <input type="number" id="st-budget" value="1200000" readonly style="background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.35);border-radius:9px;color:var(--gold-l);font-family:'JetBrains Mono',monospace;font-size:15px;padding:10px 12px;width:100%;outline:none">
+            <div class="pval" id="sv-budget">$1,200,000</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:5px">Inicial × Mensal × Meses (do Simulador)</div>
+          </div>
+          <div class="param">
+            <label>Projeção (meses) <span class="param-readonly-badge">AUTO</span></label>
+            <input type="number" id="st-proj" value="24" readonly style="background:rgba(212,175,55,.05);border:1px solid rgba(212,175,55,.35);border-radius:9px;color:var(--gold-l);font-family:'JetBrains Mono',monospace;font-size:15px;padding:10px 12px;width:100%;outline:none">
+            <div class="pval" id="sv-proj">24 meses</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:5px">Período definido no Simulador</div>
+          </div>
+        </div>
+      </div>
+      <div class="sgrid" id="strat-cards"></div>
+      <div class="card ccard">
+        <div class="ctitle">🪙 Ativos Acumulados por Estratégia</div>
+        <div class="cwrap"><canvas id="stratChart"></canvas></div>
+        <div class="insight ir" style="margin-top:12px">
+          ⏰ <strong>Custo de esperar:</strong> Ao parcelar, você compra progressivamente mais caro conforme o ativo valoriza. A compra imediata captura o menor preço e acumula mais ativos.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== COMMUNITY ========== -->
+  <div id="sec-community" class="sec">
+    <div class="sec-hdr">
+      <div class="sec-badge">NETWORK EFFECT</div>
+      <h2>Crescimento da Comunidade</h2>
+      <p>Como novos investidores criam escassez e valorização progressiva</p>
+    </div>
+    <div id="comm-noativo" class="insight ig">👆 Selecione um ativo no topo da página.</div>
+    <div id="comm-content" style="display:none">
+      <div class="ativo-bar" id="comm-bar"></div>
+      <div class="kpi-grid">
+        <div class="card kpi"><div class="kpi-lbl">Novos Investidores</div><div class="kpi-val blu" id="ck-inv">—</div><div class="kpi-sub">no último mês</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Fluxo de Capital</div><div class="kpi-val gold" id="ck-flow">—</div><div class="kpi-sub">pressão compradora</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Market Cap Projetado</div><div class="kpi-val neon" id="ck-mcap">—</div><div class="kpi-sub">estimativa</div></div>
+        <div class="card kpi"><div class="kpi-lbl">Índice de Escassez</div><div class="kpi-val" style="color:#9B59FF" id="ck-scar">—</div><div class="kpi-sub">supply absorvido</div></div>
+      </div>
+      <div class="card pcard">
+        <div class="ptitle">⚙️ Parâmetros da Comunidade</div>
+        <div class="pgrid">
+          <div class="param"><label>Novos Investidores/mês</label><input type="number" id="cp-inv" value="100" min="10" max="1000000" oninput="syncR(this,'cr-inv');runComm()"><input type="range" id="cr-inv" value="100" min="10" max="1000000" step="100" oninput="syncI(this,'cp-inv');runComm()"></div>
+          <div class="param"><label>Ticket Médio (USD)</label><input type="number" id="cp-ticket" value="500" min="50" oninput="syncR(this,'cr-ticket');runComm()"><input type="range" id="cr-ticket" value="500" min="50" max="5000" oninput="syncI(this,'cp-ticket');runComm()"></div>
+          <div class="param"><label>Crescimento da Rede (%/mês)</label><input type="number" id="cp-ng" value="20" min="1" max="100" oninput="syncR(this,'cr-ng');runComm()"><input type="range" id="cr-ng" value="20" min="1" max="100" oninput="syncI(this,'cp-ng');runComm()"></div>
+          <div class="param"><label>Período (meses)</label><input type="number" id="cp-months" value="24" min="3" max="60" oninput="syncR(this,'cr-months');runComm()"><input type="range" id="cr-months" value="24" min="3" max="60" oninput="syncI(this,'cp-months');runComm()"></div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card ccard"><div class="ctitle">Market Cap</div><div class="cwrap"><canvas id="mcapChart"></canvas></div></div>
+        <div class="card ccard"><div class="ctitle">Índice de Escassez</div><div class="cwrap"><canvas id="scarChart"></canvas></div></div>
+      </div>
+      <div class="insight in">💡 Cada novo investidor reduz o supply circulante disponível. O efeito composto de rede cria pressão compradora crescente que valoriza progressivamente o ativo.</div>
+    </div>
+  </div>
+
+  <!-- ========== PROJECTION ========== -->
+  <div id="sec-projection" class="sec">
+    <div class="sec-hdr">
+      <div class="sec-badge">10Y FORECAST</div>
+      <h2>Projeção de 10 Anos</h2>
+      <p>Cenários conservador, moderado e agressivo</p>
+    </div>
+    <div id="proj-noativo" class="insight ig">👆 Selecione um ativo no topo da página.</div>
+    <div id="proj-content" style="display:none">
+      <div class="ativo-bar" id="proj-bar"></div>
+      <div class="kpi-grid" id="proj-kpis"></div>
+      <div class="card ccard">
+        <div class="ctitle">📊 Evolução Patrimonial — 10 Anos</div>
+        <div class="cwrap" style="height:260px"><canvas id="projChart"></canvas></div>
+        <div class="insight ig" style="margin-top:12px">📊 <strong>Disciplina supera intensidade:</strong> Aportes mensais consistentes demonstram o poder dos juros compostos. O crescimento exponencial torna os últimos meses responsáveis pela maior parte do patrimônio.</div>
+      </div>
+      <div class="card pcard" style="margin-top:18px"><p class="ptitle" style="color:rgba(255,255,255,.4)">⚖️ AVISO LEGAL</p><p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.7">Projeções são cenários hipotéticos baseados em premissas matemáticas. NÃO constituem garantia de rentabilidade ou recomendação de investimento. Consulte um profissional financeiro certificado antes de investir.</p></div>
+    </div>
+  </div>
+
+  <!-- ========== EXPORT ========== -->
+  <div id="sec-export" class="sec">
+    <div class="sec-hdr">
+      <div class="sec-badge">RELATÓRIO</div>
+      <h2>Exportar & Compartilhar</h2>
+      <p>Gere o relatório PDF completo com todos os dados do ativo selecionado</p>
+    </div>
+    <div id="exp-noativo" class="insight ig">👆 Selecione um ativo no topo da página para gerar o relatório.</div>
+    <div id="exp-content" style="display:none">
+      <div class="ativo-bar" id="exp-bar"></div>
+      <div class="card pcard">
+        <div class="ptitle">📤 Exportar Relatório</div>
+        <div class="egrid">
+          <button class="eb eg" onclick="shareWhatsApp()"><div class="eb-icon">💬</div><div class="eb-lbl">WhatsApp</div><div class="eb-sub">Compartilhar resultado</div></button>
+          <button class="eb egd" onclick="exportPDF()"><div class="eb-icon">📄</div><div class="eb-lbl">PDF Premium</div><div class="eb-sub">Relatório institucional</div></button>
+          <button class="eb eb2" onclick="exportCSV()"><div class="eb-icon">📊</div><div class="eb-lbl">CSV Completo</div><div class="eb-sub">Dados mês a mês</div></button>
+          <button class="eb ep" onclick="copyLink()"><div class="eb-icon" id="li">🔗</div><div class="eb-lbl" id="ll">Link Único</div><div class="eb-sub">URL da simulação</div></button>
+        </div>
+      </div>
+      <div class="card pcard" style="margin-top:18px">
+        <div class="ptitle">📋 Resumo — <span id="exp-ativo-name" style="color:var(--gold)">—</span></div>
+        <div class="sum-grid" id="exp-summary"></div>
+        <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,.02);border-radius:8px">
+          <p style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.8">⚖️ AVISO LEGAL: Ferramenta educacional de simulação financeira. Todas as projeções são cenários hipotéticos e NÃO constituem garantia de rentabilidade, promessa de lucro ou recomendação de investimento. Criptomoedas são ativos de alto risco. Consulte um profissional financeiro antes de investir. Verum Wallet não se responsabiliza por perdas financeiras.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="rel">
+    <p>© 2025 Verum Wallet • Compound Engine v2.0 • Ecossistema Solana</p>
+    <p>Ferramenta educacional — não constitui recomendação de investimento</p>
+  </footer>
+</div>
+
+<!-- PDF RENDER LAYER (hidden) -->
+<div id="pdf-render"></div>
+
+<script>
+// ==========================================
+// ATIVOS DATABASE
+// ==========================================
+// Mints reais na Solana — DexScreener é a fonte de preço, nome, símbolo e ícone.
+// BRT ainda sem liquidez: fica congelado em zero (mint placeholder).
+const ATIVOS = [
+  {
+    id:'escoteiro', mint:'Ctauy54NbyabVqGXHuY5wwVEAh29mGhh5KGfif5jppZt',
+    name:'Escoteiro Coin', sym:'ESCT',
+    price:0, mcap:0, liq:0, vol:0,
+    holders:0, chg:0, supply:0, circ:0,
+    logo:'/public/ESCT.png',          // logo local (sempre vence)
+    logoUrl:'/public/ESCT.png', hasLive:false,
+    color:'#00FF9C', bg:'rgba(0,255,156,.12)'
+  },
+  {
+    id:'bode', mint:'AeAQdgjGqtHErysb5FBvUxNxmob2mVBGnEXdmULJ7dH9',
+    name:'Bode Coin', sym:'BDC',
+    price:0, mcap:0, liq:0, vol:0,
+    holders:0, chg:0, supply:0, circ:0,
+    logo:'/public/LOGO-BDC.png',
+    logoUrl:'/public/LOGO-BDC.png', hasLive:false,
+    color:'#D4AF37', bg:'rgba(212,175,55,.15)'
+  },
+  {
+    id:'brutos', mint:'BrUtOsXXXXXXXXXXXXXXXXXXXXXXXXXXXXbrutos',
+    name:'Brutos Coin', sym:'BRT',
+    price:0, mcap:0, liq:0, vol:0,
+    holders:0, chg:0, supply:0, circ:0,
+    logo:'/public/BRUTOS.png',
+    logoUrl:'/public/BRUTOS.png', hasLive:false,
+    color:'#9B59FF', bg:'rgba(155,89,255,.12)'
+  },
+];
+
+let selectedAtivo = null;
+let simData = [];
+let charts = {};
+
+// ==========================================
+// UTILS
+// ==========================================
+const fmtUSD = v => v < 0.001 ? '$'+v.toFixed(8) : v < 1 ? '$'+v.toFixed(6) : '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4});
+// Badge de variação % no estilo Solflare (pill com tint + seta)
+function pctBadge(chg, size){
+  const v = Number(chg) || 0;
+  const cls = v > 0.005 ? 'up' : v < -0.005 ? 'down' : 'flat';
+  const arrow = cls === 'up'
+    ? '<svg viewBox="0 0 10 10" fill="currentColor"><path d="M5 1.5 L9 8 H1 Z"/></svg>'
+    : cls === 'down'
+      ? '<svg viewBox="0 0 10 10" fill="currentColor"><path d="M5 8.5 L1 2 H9 Z"/></svg>'
+      : '';
+  const sign = v > 0 ? '+' : '';
+  return `<span class="pct-badge ${cls}${size?' '+size:''}">${arrow}${sign}${v.toFixed(2)}%</span>`;
+}
+const fmtLg  = v => v>=1e9 ? (v/1e9).toFixed(2)+'B' : v>=1e6 ? (v/1e6).toFixed(2)+'M' : v>=1e3 ? (v/1e3).toFixed(2)+'K' : v.toFixed(2);
+const fmtAtv = v => v>=1e9 ? (v/1e9).toFixed(4)+'B' : v>=1e6 ? (v/1e6).toFixed(4)+'M' : v>=1e3 ? (v/1e3).toFixed(4)+'K' : v.toFixed(6);
+const gv     = id => parseFloat(document.getElementById(id)?.value) || 0;
+const el     = id => document.getElementById(id);
+
+// ==========================================
+// CLOCK
+// ==========================================
+function tick(){ el('clock').textContent = new Date().toLocaleTimeString('pt-BR'); }
+setInterval(tick,1000); tick();
+
+// ==========================================
+// LIVE PRICE FEED — DexScreener + Solana RPC
+// ==========================================
+const DS_API  = 'https://api.dexscreener.com/latest/dex/tokens/';
+const DS_LOGO = m => `https://dd.dexscreener.com/ds-data/tokens/solana/${m}.png`;
+const RPC_URL = 'https://api.mainnet-beta.solana.com';
+// Jupiter Price v3 — mesma fonte que o Solflare usa para variação 24h
+const JUP_PRICE_API = 'https://lite-api.jup.ag/price/v3';
+
+// Fonte primária da variação % — uma única chamada batched
+async function fetchJupiterPrices(mints){
+  try{
+    const r = await fetch(JUP_PRICE_API + '?ids=' + mints.join(','));
+    if(!r.ok) return {};
+    return await r.json();   // { mint: { usdPrice, priceChange24h, ... } }
+  }catch{ return {}; }
+}
+
+// Proxy unificado /api/asset?mint=xxx → { image, name, symbol, supply, decimals }.
+// O RPC publico bloqueia getAsset e getTokenSupply de browser (403). Cache 5min.
+const assetCache = {};
+async function fetchAsset(mint){
+  const c = assetCache[mint];
+  if(c && Date.now() - c.ts < 5 * 60 * 1000) return c.v;
+  try{
+    const r = await fetch('/api/asset?mint=' + mint);
+    if(!r.ok){ assetCache[mint] = { v:null, ts:Date.now() }; return null; }
+    const v = await r.json();
+    assetCache[mint] = { v, ts:Date.now() };
+    return v;
+  }catch{
+    assetCache[mint] = { v:null, ts:Date.now() };
+    return null;
+  }
+}
+
+// ---------- RPC helpers ----------
+async function rpcCall(method, params){
+  try{
+    const r = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ jsonrpc:'2.0', id:1, method, params }),
+    });
+    if(!r.ok) return null;
+    const j = await r.json();
+    return j.result ?? null;
+  }catch{ return null; }
+}
+
+// Procura a assinatura cujo blockTime é mais PRÓXIMO de targetSec
+// (não importa se um pouco antes ou um pouco depois — minimiza o erro temporal).
+async function findSigNearest(pairAddress, targetSec){
+  let before;
+  let best = null;   // { sig, dt }
+  for(let page = 0; page < 4; page++){
+    const params = before ? [pairAddress, { limit:1000, before }] : [pairAddress, { limit:1000 }];
+    const sigs = await rpcCall('getSignaturesForAddress', params);
+    if(!Array.isArray(sigs) || sigs.length === 0) break;
+    for(const s of sigs){
+      if(!s.blockTime) continue;
+      const dt = Math.abs(s.blockTime - targetSec);
+      if(!best || dt < best.dt) best = { sig: s.signature, dt };
+    }
+    const last = sigs[sigs.length - 1];
+    if(!last?.blockTime) break;
+    // Se já passamos do alvo e o mais antigo desta página está bem antes dele, para.
+    if(last.blockTime < targetSec - 3600) break;
+    before = last.signature;
+  }
+  return best?.sig ?? null;
+}
+
+// Lê preço histórico (quote por base) de uma tx. Identifica as vaults do pool
+// procurando o par (base, quote) que tem o MESMO owner (a authority do AMM).
+async function priceFromTx(sig, baseMint, quoteMint){
+  const tx = await rpcCall('getTransaction', [sig, { maxSupportedTransactionVersion:0, encoding:'jsonParsed' }]);
+  if(!tx?.meta) return null;
+  const pre  = tx.meta.preTokenBalances  || [];
+  const post = tx.meta.postTokenBalances || [];
+  const enrich = (b) => {
+    const p = pre.find(x => x.accountIndex === b.accountIndex);
+    return {
+      idx:   b.accountIndex,
+      owner: b.owner,
+      preA:  p ? parseFloat(p.uiTokenAmount.uiAmountString || '0') : 0,
+      postA: parseFloat(b.uiTokenAmount.uiAmountString || '0'),
+    };
+  };
+  const bases  = post.filter(b => b.mint === baseMint).map(enrich);
+  const quotes = post.filter(b => b.mint === quoteMint).map(enrich);
+  if(!bases.length || !quotes.length) return null;
+
+  // Procura o par com mesmo owner (pool real). Prefere o que tem mais saldo.
+  let best = null;
+  for(const b of bases) for(const q of quotes){
+    if(!b.owner || b.owner !== q.owner) continue;
+    const score = b.postA + q.postA;
+    if(!best || score > best.score) best = { b, q, score };
+  }
+  if(!best){
+    // Fallback: maior vault de cada mint (pode errar em txs roteadas)
+    bases.sort((a,b)=>b.postA-a.postA);
+    quotes.sort((a,b)=>b.postA-a.postA);
+    best = { b: bases[0], q: quotes[0] };
+  }
+  // Usa a RAZÃO DO POOL (mais estável que o delta do swap individual)
+  if(best.b.postA <= 0) return null;
+  return best.q.postA / best.b.postA;
+}
+
+// Cache de SOL/USD (preço atual + variação 24h) — refresca a cada 60s
+const SOL_MINT  = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+let solUsdCache = { ts:0, data:null };
+async function fetchSolUsd(){
+  if(Date.now() - solUsdCache.ts < 60000 && solUsdCache.data) return solUsdCache.data;
+  try{
+    const r = await fetch(DS_API + SOL_MINT);
+    if(!r.ok) return null;
+    const j = await r.json();
+    const top = (j.pairs || [])
+      .filter(p => p.chainId === 'solana' && p.quoteToken?.address === USDC_MINT)
+      .sort((a,b) => (b.liquidity?.usd||0) - (a.liquidity?.usd||0))[0];
+    if(!top) return null;
+    const data = {
+      cur: parseFloat(top.priceUsd || '0') || 0,
+      chg: parseFloat(top.priceChange?.h24 ?? 0) || 0,
+    };
+    solUsdCache = { ts: Date.now(), data };
+    return data;
+  }catch{ return null; }
+}
+
+// Apenas a parte cara: descobre o preço histórico em moeda nativa via RPC.
+// Cacheado por 10 minutos por token — a base do cálculo é o snapshot de 24h atrás.
+const histCache = {};   // mint → { histNative, ts }
+const HIST_TTL  = 10 * 60 * 1000;
+
+async function getHistNative(mint, pairAddress, baseMint, quoteMint){
+  const c = histCache[mint];
+  if(c && Date.now() - c.ts < HIST_TTL) return c.histNative;
+  if(!pairAddress || !baseMint || !quoteMint) return null;
+  const target = Math.floor(Date.now()/1000) - 86400;
+  const sig = await findSigNearest(pairAddress, target);
+  if(!sig) return null;
+  const histNative = await priceFromTx(sig, baseMint, quoteMint);
+  if(!histNative || histNative <= 0) return null;
+  histCache[mint] = { histNative, ts: Date.now() };
+  return histNative;
+}
+
+// Recalcula % USD usando preço histórico cacheado + SOL/USD atual.
+// Roda a cada tick (rápido — só faz RPC se cache expirou).
+async function rpcChange24h(mint, pairAddress, baseMint, quoteMint, currentNative, currentUsd){
+  const histNative = await getHistNative(mint, pairAddress, baseMint, quoteMint);
+  if(!histNative) return null;
+
+  if(quoteMint === SOL_MINT){
+    if(!currentUsd) return null;
+    const sol = await fetchSolUsd();
+    if(!sol || !sol.cur) return null;
+    const histSolUsd = sol.cur / (1 + (sol.chg/100));   // SOL/USD de 24h atrás
+    const histUsd = histNative * histSolUsd;
+    return ((currentUsd - histUsd) / histUsd) * 100;
+  }
+  if(quoteMint === USDC_MINT && currentUsd){
+    return ((currentUsd - histNative) / histNative) * 100;
+  }
+  return currentNative ? ((currentNative - histNative) / histNative) * 100 : null;
+}
+
+// Último recurso: snapshot local de ~24h atrás
+function localChange(currentPrice, mint){
+  try{
+    const KEY = 'verum.ref.' + mint;
+    const raw = localStorage.getItem(KEY);
+    const now = Date.now();
+    const TTL = 24 * 60 * 60 * 1000;
+    if(raw){
+      const { price: ref, t } = JSON.parse(raw);
+      if(now - t < TTL && ref > 0 && currentPrice > 0){
+        return ((currentPrice - ref) / ref) * 100;
+      }
+    }
+    if(currentPrice > 0){
+      localStorage.setItem(KEY, JSON.stringify({ price: currentPrice, t: now }));
+    }
+  }catch{}
+  return 0;
+}
+
+async function fetchOne(mint){
+  try{
+    const r = await fetch(DS_API + mint);
+    if(!r.ok) return null;
+    const d = await r.json();
+    const pairs = (d.pairs || []).filter(p => p.chainId === 'solana');
+    if(!pairs.length) return null;
+    pairs.sort((x,y) => (y.liquidity?.usd || 0) - (x.liquidity?.usd || 0));
+    const p = pairs[0];
+    const price       = parseFloat(p.priceUsd    || '0') || 0;
+    const priceNative = parseFloat(p.priceNative || '0') || 0;
+    return {
+      name:        p.baseToken?.name   || null,
+      sym:         p.baseToken?.symbol || null,
+      price,
+      priceNative,
+      pairAddress: p.pairAddress,
+      baseMint:    p.baseToken?.address,
+      quoteMint:   p.quoteToken?.address,
+      mcap:    p.marketCap || p.fdv || 0,
+      liq:     p.liquidity?.usd || 0,
+      vol:     p.volume?.h24 || 0,
+      // chg vem do DexScreener se existir, senão null → tickChanges() resolve pelo RPC
+      chg:     (typeof p.priceChange?.h24 === 'number' && p.priceChange.h24 !== 0)
+                  ? p.priceChange.h24 : null,
+      supply:  (p.fdv && p.priceUsd) ? p.fdv / parseFloat(p.priceUsd) : 0,
+      logoUrl: p.info?.imageUrl || DS_LOGO(mint),
+    };
+  }catch{ return null; }
+}
+
+async function tickPrices(){
+  // DexScreener + Jupiter + /api/asset (DAS + supply on-chain) em paralelo
+  const [dexResults, jupPrices, assets] = await Promise.all([
+    Promise.all(ATIVOS.map(a => fetchOne(a.mint))),
+    fetchJupiterPrices(ATIVOS.map(a => a.mint)),
+    Promise.all(ATIVOS.map(a => fetchAsset(a.mint))),
+  ]);
+
+  ATIVOS.forEach((a, i) => {
+    const live = dexResults[i];
+    if(!live){ a.hasLive = false; return; }
+    a.hasLive     = true;
+    a.name        = live.name || a.name;
+    a.sym         = live.sym  || a.sym;
+    a.price       = live.price;
+    a.priceNative = live.priceNative;
+    a.pairAddress = live.pairAddress;
+    a.baseMint    = live.baseMint;
+    a.quoteMint   = live.quoteMint;
+    a.mcap        = live.mcap;
+    a.liq         = live.liq;
+    a.vol         = live.vol;
+    // Supply: prioridade pro on-chain (vem do /api/asset), depois DexScreener
+    const onchainSupply = assets[i] && assets[i].supply;
+    a.supply      = (typeof onchainSupply === 'number' && onchainSupply > 0) ? onchainSupply : (live.supply || a.supply);
+    a.circ        = a.supply;
+    // Recalcula market cap com a supply real (fdv do DexScreener pode estar errado)
+    if(a.price > 0 && a.supply > 0) a.mcap = a.price * a.supply;
+    // Prioridade do ícone: arquivo local (a.logo) → DAS on-chain → DexScreener → CDN
+    a.logoUrl     = a.logo || (assets[i] && assets[i].image) || live.logoUrl;
+
+    // VARIAÇÃO % — ordem de preferência:
+    // 1) Jupiter Price v3 (mesma fonte que o Solflare usa)
+    // 2) DexScreener priceChange.h24 (se não-zero)
+    // 3) deixa pra etapa de fallback RPC abaixo
+    const jup = jupPrices[a.mint];
+    if(jup && typeof jup.priceChange24h === 'number'){
+      a.chg = jup.priceChange24h;
+      // Jupiter também tem usdPrice mais preciso pra tokens listados
+      if(typeof jup.usdPrice === 'number' && jup.usdPrice > 0) a.price = jup.usdPrice;
+    } else if(live.chg !== null){
+      a.chg = live.chg;
+    }
+  });
+
+  // Fallback RPC apenas pra quem ficou sem variação
+  await Promise.all(ATIVOS.map(async (a) => {
+    if(!a.hasLive || !a.pairAddress) return;
+    if(typeof a.chg === 'number' && a.chg !== 0) return;
+    const pct = await rpcChange24h(a.mint, a.pairAddress, a.baseMint, a.quoteMint, a.priceNative, a.price);
+    if(pct !== null && isFinite(pct)) a.chg = pct;
+    else if(a.chg == null) a.chg = localChange(a.price, a.mint);
+  }));
+
+  renderSelector();
+  if(selectedAtivo){
+    const a = ATIVOS.find(x => x.id === selectedAtivo);
+    if(a){ syncAtivoFields(a); runSim(); updateDash(a); }
+  }
+}
+
+tickPrices();
+setInterval(tickPrices, 10000);
+
+// ==========================================
+// ATIVO SELECTOR (hero)
+// ==========================================
+function renderSelector(){
+  const sel = el('ativo-selector');
+  sel.innerHTML = ATIVOS.map(a=>{
+    const isOn = a.id === selectedAtivo;
+    const up = a.chg >= 0;
+    return `<div class="ativo-btn${isOn?' selected':''}" onclick="selectAtivo('${a.id}')">
+      <div class="check">${isOn?'✓':''}</div>
+      <div class="ab-icon" style="background:${a.bg};border-color:${a.color}40;color:${a.color};overflow:hidden;padding:0">${a.logoUrl?`<img src="${a.logoUrl}" alt="${a.sym}" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${a.sym.slice(0,3)}'}))">`:a.sym.slice(0,3)}</div>
+      <div class="ab-name">${a.name}</div>
+      <div class="ab-sym">${a.sym}</div>
+      <div class="ab-price" style="color:${a.color}">${fmtUSD(a.price)}</div>
+      <div class="ab-chg">${pctBadge(a.chg)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectAtivo(id){
+  selectedAtivo = (selectedAtivo === id) ? null : id;
+  renderSelector();
+
+  if(!selectedAtivo){
+    el('sel-banner').style.display='none';
+    hideAllContent();
+    return;
+  }
+
+  const a = ATIVOS.find(x=>x.id===id);
+  el('sel-banner').style.display='block';
+  el('sel-banner-text').innerHTML = `✓ Ativo selecionado: <strong>${a.name} (${a.sym})</strong> — Todos os cálculos baseados neste ativo`;
+
+  syncAtivoFields(a);
+  updateDash(a);
+  showAllContent(a);
+  runSim();
+  runStrat();
+  runComm();
+  runProj();
+  updateExport();
+}
+
+function hideAllContent(){
+  ['dash-content','sim-content','strat-content','comm-content','proj-content','exp-content'].forEach(i=>{ const e=el(i); if(e) e.style.display='none'; });
+  ['dash-empty','sim-noativo','strat-noativo','comm-noativo','proj-noativo','exp-noativo'].forEach(i=>{ const e=el(i); if(e) e.style.display='block'; });
+  el('dash-title').textContent='Selecione um ativo acima';
+  el('dash-sub').textContent='Clique em um dos ativos no topo para carregar todos os dados';
+}
+
+function showAllContent(a){
+  ['dash-empty','sim-noativo','strat-noativo','comm-noativo','proj-noativo','exp-noativo'].forEach(i=>{ const e=el(i); if(e) e.style.display='none'; });
+  ['dash-content','sim-content','strat-content','comm-content','proj-content','exp-content'].forEach(i=>{ const e=el(i); if(e) e.style.display='block'; });
+  el('dash-title').textContent = a.name + ' — Dashboard';
+  el('dash-sub').textContent   = `${a.sym} • DexScreener (atualiza a cada 10s)`;
+  el('sim-sub').textContent    = `Simulação baseada em ${a.name} (${a.sym})`;
+
+  // Render ativo bars in all sections
+  const barHTML = (a) => `
+    <div style="display:flex;align-items:center;gap:8px;margin-right:8px">
+      <div style="width:30px;height:30px;border-radius:50%;background:${a.bg};border:1px solid ${a.color}40;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${a.color};overflow:hidden">${a.logoUrl?`<img src="${a.logoUrl}" alt="${a.sym}" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${a.sym.slice(0,3)}'}))">`:a.sym.slice(0,3)}</div>
+      <div><div style="font-size:15px;font-weight:700;color:${a.color}">${a.name}</div><div style="font-size:11px;color:rgba(255,255,255,.55);font-family:'JetBrains Mono',monospace">${a.sym}</div></div>
+    </div>
+    <div class="ab-sep"></div>
+    <div><div class="ab-tag">Preço</div><div class="ab-val" style="color:var(--yellow)">${fmtUSD(a.price)}</div></div>
+    <div class="ab-sep"></div>
+    <div><div class="ab-tag">Market Cap</div><div class="ab-val">$${fmtLg(a.mcap)}</div></div>
+    <div class="ab-sep"></div>
+    <div><div class="ab-tag">Supply</div><div class="ab-val">${fmtLg(a.supply)}</div></div>
+    <div class="ab-sep"></div>
+    <div><div class="ab-tag">Variação 24h</div><div class="ab-val">${pctBadge(a.chg,'lg')}</div></div>`;
+  ['ativo-bar','sim-bar','strat-bar','comm-bar','proj-bar','exp-bar'].forEach(bid=>{ const b=el(bid); if(b) b.innerHTML=barHTML(a); });
+}
+
+function syncAtivoFields(a){
+  if(el('sp-ativo'))  el('sp-ativo').value  = `${a.name} (${a.sym})`;
+  if(el('sp-price'))  el('sp-price').value  = a.price;
+  if(el('sp-supply')) el('sp-supply').value = a.supply;
+}
+
+// ==========================================
+// DASHBOARD
+// ==========================================
+function updateDash(a){
+  el('d-price').textContent  = fmtUSD(a.price);
+  el('d-mcap').textContent   = '$'+fmtLg(a.mcap);
+  el('d-vol').textContent    = '$'+fmtLg(a.vol);
+  el('d-holders').textContent= a.holders.toLocaleString('pt-BR');
+  el('d-liq').textContent    = '$'+fmtLg(a.liq);
+  el('d-chg').innerHTML      = pctBadge(a.chg,'lg');
+  el('d-chg').style.color    = '';
+  el('d-supply').textContent = fmtLg(a.supply);
+  el('d-circ').textContent   = fmtLg(a.circ);
+
+  // Price chart (simulated last 24h)
+  const pts=48, labels=[], data=[];
+  for(let i=pts;i>=0;i--){
+    const h=i/2; labels.push(i%4===0?`${Math.floor(24-(h))}h`:'');
+    const pct = 1 - (a.chg/100)*(i/pts) + (Math.random()-.5)*.005;
+    data.push(a.price * pct);
+  }
+  data[data.length-1]=a.price;
+
+  if(charts.dash) charts.dash.destroy();
+  const ctx=el('dashChart').getContext('2d');
+  const g=ctx.createLinearGradient(0,0,0,200);
+  g.addColorStop(0,a.color+'50'); g.addColorStop(1,a.color+'00');
+  charts.dash=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{data,borderColor:a.color,borderWidth:2,backgroundColor:g,fill:true,pointRadius:0,tension:.4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(6,9,18,.95)',borderColor:a.color+'60',borderWidth:1,callbacks:{label:c=>fmtUSD(c.raw)}}},scales:{x:{ticks:{color:'rgba(255,255,255,.35)',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'rgba(255,255,255,.35)',font:{size:9},callback:v=>fmtUSD(v)},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// ==========================================
+// SIMULATION
+// ==========================================
+const syncR=(inp,rid)=>{ const r=el(rid); if(r) r.value=inp.value; };
+const syncI=(rng,iid)=>{ const i=el(iid); if(i) i.value=rng.value; };
+
+function toggleReinvest(){
+  const t=el('reinvest-tog');
+  t.classList.toggle('on');
+  runSim();
+}
+
+function runSim(){
+  if(!selectedAtivo) return;
+  const a     = ATIVOS.find(x=>x.id===selectedAtivo);
+  const init  = gv('sp-initial');
+  const mthly = gv('sp-monthly');
+  const months= Math.max(1,Math.round(gv('sp-months')));
+  const growth= gv('sp-growth')/100;
+  const price0= a.price;
+
+  el('pv-initial').textContent = '$'+init.toLocaleString('en-US');
+  el('pv-monthly').textContent = '$'+mthly.toLocaleString('en-US');
+  el('pv-months').textContent  = months+' meses';
+  el('pv-growth').textContent  = gv('sp-growth')+'%';
+
+  // Sync Strategy tab inputs from Simulator (Inicial × Mensal × Meses, mesma projeção)
+  const stratBudget = init * mthly * months;
+  const stB = el('st-budget'); if(stB) stB.value = stratBudget;
+  const stP = el('st-proj');   if(stP) stP.value = months;
+  if(el('sv-budget')) el('sv-budget').textContent = '$'+stratBudget.toLocaleString('en-US');
+  if(el('sv-proj'))   el('sv-proj').textContent   = months+' meses';
+  runStrat();
+
+  let totalAtivos   = init>0 ? init/price0 : 0;
+  let totalInvested = init;
+  simData = [];
+
+  for(let m=1; m<=months; m++){
+    const p      = price0 * Math.pow(1+growth, m);
+    const bought = mthly>0 ? mthly/p : 0;
+    totalAtivos   += bought;
+    totalInvested += mthly;
+    const value  = totalAtivos * p;
+    const profit = value - totalInvested;
+    simData.push({month:m, price:p, ativos:totalAtivos, invested:totalInvested, value, profit, pct:(totalInvested>0?profit/totalInvested*100:0)});
+  }
+
+  const last = simData[simData.length-1];
+  if(last){
+    el('k-ativos').textContent    = fmtAtv(last.ativos);
+    el('k-avgprice').textContent  = fmtUSD(last.invested/last.ativos);
+    el('k-portfolio').textContent = '$'+last.value.toFixed(4);
+    el('k-profit').textContent    = (last.pct>0?'+':'')+last.pct.toFixed(0)+'%';
+    el('k-profit-usd').textContent= '$'+last.profit.toFixed(2);
+    el('sim-insight').innerHTML   = `⚡ Com <strong>$${mthly}/mês</strong> em <strong>${a.name}</strong>, em <strong>${months} meses</strong> você acumula <strong>${fmtAtv(last.ativos)} ${a.sym}</strong> com retorno estimado de <strong>+${last.pct.toFixed(0)}%</strong>.`;
+  }
+
+  // Chart
+  const skip = Math.max(1,Math.ceil(simData.length/50));
+  const lbls = simData.filter((_,i)=>i%skip===0||i===simData.length-1).map(d=>d.month+'m');
+  const vals = simData.filter((_,i)=>i%skip===0||i===simData.length-1).map(d=>d.value);
+  const invs = simData.filter((_,i)=>i%skip===0||i===simData.length-1).map(d=>d.invested);
+
+  if(charts.sim) charts.sim.destroy();
+  const ctx=el('simChart').getContext('2d');
+  const gV=ctx.createLinearGradient(0,0,0,230); gV.addColorStop(0,'rgba(255,215,0,.4)'); gV.addColorStop(1,'rgba(255,215,0,0)');
+  const gI=ctx.createLinearGradient(0,0,0,230); gI.addColorStop(0,'rgba(0,255,156,.3)'); gI.addColorStop(1,'rgba(0,255,156,0)');
+  charts.sim=new Chart(ctx,{
+    type:'line',
+    data:{labels:lbls,datasets:[
+      {label:'Total Investido',data:invs,borderColor:'#00FF9C',borderWidth:1.5,backgroundColor:gI,fill:true,pointRadius:0,tension:.4},
+      {label:'Patrimônio',data:vals,borderColor:'#FFD700',borderWidth:2.5,backgroundColor:gV,fill:true,pointRadius:0,tension:.4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'rgba(255,255,255,.8)',font:{size:11}}},
+        tooltip:{backgroundColor:'rgba(6,9,18,.95)',borderColor:'rgba(255,215,0,.4)',borderWidth:1,callbacks:{label:c=>`${c.dataset.label}: $${c.raw.toFixed(4)}`}}},
+      scales:{x:{ticks:{color:'rgba(255,255,255,.5)',font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'rgba(255,255,255,.5)',font:{size:10},callback:v=>'$'+fmtLg(v)},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// ==========================================
+// STRATEGIES
+// ==========================================
+function runStrat(){
+  if(!selectedAtivo) return;
+  const a      = ATIVOS.find(x=>x.id===selectedAtivo);
+  const budget = gv('st-budget');
+  const proj   = Math.max(6,Math.round(gv('st-proj')));
+  const growth = gv('sp-growth')/100;
+  const price0 = a.price;
+
+  el('sv-budget').textContent = '$'+budget.toLocaleString('en-US');
+  el('sv-proj').textContent   = proj+' meses';
+
+  const futurePrice = price0 * Math.pow(1+growth, proj);
+  const plans = [0,12,36,48,60];
+  const strats = plans.map(pm=>{
+    if(pm===0){
+      const ativos=budget/price0;
+      return {name:'Imediata',months:0,ativos,avgPrice:price0,invested:budget,future:ativos*futurePrice,diff:0,pct:0};
+    }
+    let tot=0,paid=0; const m2=budget/pm;
+    for(let m=1;m<=pm;m++){ paid+=m2; tot+=m2/(price0*Math.pow(1+growth,m)); }
+    const future=tot*futurePrice;
+    return {name:`${pm}x`,months:pm,ativos:tot,avgPrice:paid/tot,invested:paid,future,diff:0,pct:0};
+  });
+  const base=strats[0].future;
+  strats.forEach((s,i)=>{ if(i>0){s.diff=s.future-base; s.pct=(s.diff/base)*100;} });
+
+  const colors=['#D4AF37','#00FF9C','#00D4FF','#9B59FF','#FF4757'];
+  el('strat-cards').innerHTML = strats.map((s,i)=>`
+    <div class="sc${i===0?' best':''}">
+      <div class="sname">${i===0?'⭐ Imediata':`${s.months}m Parcelado`}</div>
+      <div class="srow"><span class="slbl">Ativos</span><span class="sval" style="color:${colors[i]}">${fmtAtv(s.ativos)}</span></div>
+      <div class="srow"><span class="slbl">Preço Médio</span><span class="sval">${fmtUSD(s.avgPrice)}</span></div>
+      <div class="srow"><span class="slbl">Valor Futuro</span><span class="sval">${fmtUSD(s.future)}</span></div>
+      <div class="sdiff" style="color:${i===0?'var(--gold)':s.pct>=0?'var(--neon)':'var(--red)'}">
+        ${i===0?'baseline':(s.pct>=0?'+':'')+s.pct.toFixed(1)+'% vs imediata'}
+      </div>
+    </div>`).join('');
+
+  if(charts.strat) charts.strat.destroy();
+  const ctx=el('stratChart').getContext('2d');
+  charts.strat=new Chart(ctx,{
+    type:'bar',
+    data:{labels:strats.map(s=>s.name),datasets:[{label:'Ativos',data:strats.map(s=>s.ativos),backgroundColor:colors.map(c=>c+'BB'),borderColor:colors,borderWidth:1.5,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(6,9,18,.95)',borderColor:'rgba(212,175,55,.3)',borderWidth:1,callbacks:{label:c=>`${fmtAtv(c.raw)} ${a.sym}`}}},scales:{x:{ticks:{color:'rgba(255,255,255,.7)',font:{size:11}},grid:{display:false}},y:{ticks:{color:'rgba(255,255,255,.5)',font:{size:10},callback:v=>fmtLg(v)},grid:{color:'rgba(255,255,255,.04)'}}}}
+  });
+}
+
+// ==========================================
+// COMMUNITY
+// ==========================================
+function runComm(){
+  if(!selectedAtivo) return;
+  const a   = ATIVOS.find(x=>x.id===selectedAtivo);
+  const inv = gv('cp-inv'), ticket=gv('cp-ticket'), ng=gv('cp-ng')/100;
+  const months=Math.max(3,Math.round(gv('cp-months')));
+  let cumInv=0, mcap=a.mcap, data=[];
+
+  for(let m=1;m<=months;m++){
+    const newInv=Math.floor(inv*Math.pow(1+ng,m-1));
+    cumInv+=newInv;
+    mcap+=newInv*ticket*3.5;
+    const scar=Math.min(100,cumInv/10000*100);
+    data.push({m,newInv,flow:newInv*ticket,mcap,scar});
+  }
+
+  const last=data[data.length-1];
+  el('ck-inv').textContent  = last.newInv.toLocaleString('pt-BR');
+  el('ck-flow').textContent = '$'+fmtLg(last.flow);
+  el('ck-mcap').textContent = '$'+fmtLg(last.mcap);
+  el('ck-scar').textContent = last.scar.toFixed(0)+'%';
+
+  const skip=Math.max(1,Math.ceil(data.length/40));
+  const lbls=data.filter((_,i)=>i%skip===0||i===data.length-1).map(d=>d.m+'m');
+  const mcaps=data.filter((_,i)=>i%skip===0||i===data.length-1).map(d=>d.mcap);
+  const scars=data.filter((_,i)=>i%skip===0||i===data.length-1).map(d=>d.scar);
+
+  if(charts.mcap) charts.mcap.destroy();
+  {
+    const ctx=el('mcapChart').getContext('2d');
+    const g=ctx.createLinearGradient(0,0,0,200); g.addColorStop(0,a.color+'50'); g.addColorStop(1,a.color+'00');
+    charts.mcap=new Chart(ctx,{type:'line',data:{labels:lbls,datasets:[{label:'Market Cap',data:mcaps,borderColor:a.color,borderWidth:2,backgroundColor:g,fill:true,pointRadius:0,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(6,9,18,.95)',borderColor:a.color+'60',borderWidth:1,callbacks:{label:c=>`$${fmtLg(c.raw)}`}}},scales:{x:{ticks:{color:'rgba(255,255,255,.4)',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'rgba(255,255,255,.4)',font:{size:9},callback:v=>'$'+fmtLg(v)},grid:{color:'rgba(255,255,255,.04)'}}}}});
+  }
+  if(charts.scar) charts.scar.destroy();
+  {
+    const ctx=el('scarChart').getContext('2d');
+    const g=ctx.createLinearGradient(0,0,0,200); g.addColorStop(0,'rgba(0,255,156,.4)'); g.addColorStop(1,'rgba(0,255,156,0)');
+    charts.scar=new Chart(ctx,{type:'line',data:{labels:lbls,datasets:[{label:'Escassez %',data:scars,borderColor:'#00FF9C',borderWidth:2,backgroundColor:g,fill:true,pointRadius:0,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(6,9,18,.95)',borderColor:'rgba(0,255,156,.3)',borderWidth:1,callbacks:{label:c=>`${c.raw.toFixed(1)}%`}}},scales:{x:{ticks:{color:'rgba(255,255,255,.4)',font:{size:9}},grid:{color:'rgba(255,255,255,.04)'}},y:{min:0,max:100,ticks:{color:'rgba(255,255,255,.4)',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.04)'}}}}});
+  }
+}
+
+// ==========================================
+// PROJECTION
+// ==========================================
+function runProj(){
+  if(!selectedAtivo) return;
+  const a      = ATIVOS.find(x=>x.id===selectedAtivo);
+  const init   = Math.max(gv('sp-initial'), 1);   // evita divisão por zero
+  const mthly  = gv('sp-monthly');
+  const price0 = a.price;
+
+  // Taxa anual → taxa mensal equivalente correta: mr = (1 + anual)^(1/12) - 1
+  // Cenários: preço do ativo cresce X% ao ano
+  // Conservador  = 50% a.a.  → mr ≈ 3.44%/mês
+  // Moderado     = 200% a.a. → mr ≈ 9.59%/mês
+  // Agressivo    = 500% a.a. → mr ≈ 17.46%/mês
+  // Resultado obrigatório: Conservador < Moderado < Agressivo
+  const scens=[
+    {name:'Conservador', label:'50% a.a.',  color:'#64748b', annualRate:0.50},
+    {name:'Moderado',    label:'200% a.a.', color:a.color,   annualRate:2.00},
+    {name:'Agressivo',   label:'500% a.a.', color:'#00FF9C', annualRate:5.00},
+  ];
+
+  const projData = scens.map(s=>{
+    // Taxa mensal equivalente correta (NÃO usar ret/12 — usar raiz 12ª)
+    const mr = Math.pow(1 + s.annualRate, 1/12) - 1;
+    let ativos   = price0 > 0 ? init / price0 : 0;
+    let invested = init;
+    const data   = [];
+    let finalPrice = price0;
+
+    for(let m = 1; m <= 120; m++){
+      // Preço do ativo no mês m com crescimento mensal mr
+      const p = price0 * Math.pow(1 + mr, m);
+      // Compra mensal com aporte (compra ativos ao preço do mês)
+      if(mthly > 0) ativos += mthly / p;
+      invested += mthly;
+      // Valor total do portfólio = ativos acumulados × preço atual
+      const value = ativos * p;
+      if(m === 120) finalPrice = p;
+      if(m % 3 === 0 || m === 120){
+        data.push({ month: m, value, ativos, invested });
+      }
+    }
+
+    const last = data[data.length - 1];
+    return { ...s, data, fv: last.value, fat: last.ativos, fp: finalPrice };
+  });
+
+  // Verificação de sanidade: garante ordem crescente
+  // (se price0 for muito pequeno pode gerar overflow, mas a lógica é correta)
+  const totalInvested = init + mthly * 120;
+
+  el('proj-kpis').innerHTML = projData.map(s=>{
+    const mult     = s.fv / totalInvested;
+    const priceMlt = price0 > 0 ? s.fp / price0 : 0;
+    return `
+    <div class="card kpi" style="border-color:${s.color}30">
+      <div class="kpi-lbl" style="color:${s.color};opacity:1">${s.name} <span style="font-size:10px;opacity:.7">${s.label}</span></div>
+      <div class="kpi-val mono" style="color:${s.color}">$${fmtLg(s.fv)}</div>
+      <div class="kpi-sub" style="display:flex;justify-content:space-between;margin-top:6px">
+        <span style="color:rgba(255,255,255,.7)">${mult.toFixed(0)}x retorno</span>
+        <span style="color:${s.color}">${fmtAtv(s.fat)} ${a.sym}</span>
+      </div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px dashed ${s.color}30">
+        <div style="font-size:11px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.5px">Preço futuro ${a.sym} (10a)</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:5px">
+          <span class="mono" style="color:${s.color};font-size:16px;font-weight:700">${fmtUSD(s.fp)}</span>
+          <span style="font-size:12px;color:rgba(255,255,255,.7)">${priceMlt>=1000?fmtLg(priceMlt)+'x':priceMlt.toFixed(1)+'x'} vs hoje</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if(charts.proj) charts.proj.destroy();
+  const ctx = el('projChart').getContext('2d');
+  const allLbls = projData[0].data.map(d => (d.month/12).toFixed(1)+'a');
+  charts.proj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: allLbls,
+      datasets: projData.map(s=>({
+        label: `${s.name} (${s.label})`,
+        data: s.data.map(d => d.value),
+        borderColor: s.color,
+        borderWidth: 2,
+        backgroundColor: s.color+'18',
+        fill: true,
+        pointRadius: 0,
+        tension: .4
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ labels:{ color:'rgba(255,255,255,.85)', font:{size:11} } },
+        tooltip:{
+          backgroundColor:'rgba(6,9,18,.95)',
+          borderColor:'rgba(212,175,55,.3)',
+          borderWidth:1,
+          callbacks:{ label: c=>`${c.dataset.label}: $${fmtLg(c.raw)}` }
+        }
+      },
+      scales:{
+        x:{ ticks:{color:'rgba(255,255,255,.5)',font:{size:10}}, grid:{color:'rgba(255,255,255,.04)'} },
+        y:{ ticks:{color:'rgba(255,255,255,.5)',font:{size:10}, callback:v=>'$'+fmtLg(v)}, grid:{color:'rgba(255,255,255,.04)'} }
+      }
+    }
+  });
+}
+
+// ==========================================
+// EXPORT SUMMARY
+// ==========================================
+function updateExport(){
+  if(!selectedAtivo) return;
+  const a=ATIVOS.find(x=>x.id===selectedAtivo);
+  el('exp-ativo-name').textContent=`${a.name} (${a.sym})`;
+  if(!simData.length) return;
+  const last=simData[simData.length-1];
+
+  // Preço futuro 10a por cenário — mesmas taxas usadas em runProj()
+  const price0 = a.price;
+  const priceAt120 = annualRate => {
+    const mr = Math.pow(1 + annualRate, 1/12) - 1;
+    return price0 * Math.pow(1 + mr, 120);
+  };
+  const fpCons = priceAt120(0.50);
+  const fpMod  = priceAt120(2.00);
+  const fpAgr  = priceAt120(5.00);
+
+  el('exp-summary').innerHTML=[
+    {l:'Ativo',v:`${a.name} (${a.sym})`,c:a.color},
+    {l:'Preço Atual',v:fmtUSD(a.price),c:'var(--yellow)'},
+    {l:'Ativos Acumulados',v:fmtAtv(last.ativos),c:'var(--gold)'},
+    {l:'Patrimônio Futuro',v:'$'+last.value.toFixed(4),c:'var(--neon)'},
+    {l:'Retorno Estimado',v:'+'+(last.pct.toFixed(0))+'%',c:'var(--neon)'},
+    {l:'Total Investido',v:'$'+last.invested.toFixed(2),c:'#fff'},
+    {l:'Preço Futuro 10a — Conservador',v:fmtUSD(fpCons),c:'#64748b'},
+    {l:'Preço Futuro 10a — Moderado',  v:fmtUSD(fpMod), c:a.color},
+    {l:'Preço Futuro 10a — Agressivo', v:fmtUSD(fpAgr), c:'#00FF9C'},
+    {l:'Período',v:gv('sp-months')+' meses',c:'#fff'},
+    {l:'Market Cap',v:'$'+fmtLg(a.mcap),c:a.color},
+  ].map(i=>`<div class="si"><div class="si-lbl">${i.l}</div><div class="si-val" style="color:${i.c}">${i.v}</div></div>`).join('');
+}
+
+// ==========================================
+// PDF EXPORT
+// ==========================================
+function exportPDF(){
+  if(!selectedAtivo){ alert('Selecione um ativo primeiro.'); return; }
+  const a=ATIVOS.find(x=>x.id===selectedAtivo);
+  if(!simData.length){ alert('Execute a simulação primeiro.'); return; }
+  const last=simData[simData.length-1];
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, M=15;
+
+  // Background
+  doc.setFillColor(2,4,10); doc.rect(0,0,W,297,'F');
+
+  // Gold header bar
+  doc.setFillColor(212,175,55); doc.rect(0,0,W,2,'F');
+
+  // Logo area
+  doc.setFillColor(20,28,52); doc.rect(M,10,W-M*2,22,'F');
+  doc.setFontSize(16); doc.setTextColor(212,175,55);
+  doc.text('VERUM COMPOUND ENGINE', M+4, 19);
+  doc.setFontSize(8); doc.setTextColor(160,160,160);
+  doc.text('Relatório Institucional de Simulação Financeira', M+4, 25);
+  doc.text(new Date().toLocaleDateString('pt-BR',{dateStyle:'long'}), W-M, 25, {align:'right'});
+  doc.setDrawColor(212,175,55,0.3); doc.line(M,32,W-M,32);
+
+  // Ativo title
+  doc.setFontSize(13); doc.setTextColor(212,175,55);
+  doc.text(`Ativo: ${a.name} (${a.sym})`, M, 42);
+  doc.setFontSize(8); doc.setTextColor(130,130,130);
+  doc.text(`Preço atual: ${fmtUSD(a.price)}  |  Market Cap: $${fmtLg(a.mcap)}  |  Supply: ${fmtLg(a.supply)}`, M, 48);
+
+  // Section: Dados do Ativo
+  doc.setFillColor(15,22,41); doc.rect(M,53,W-M*2,28,'F');
+  doc.setFontSize(9); doc.setTextColor(212,175,55);
+  doc.text('DADOS DO ATIVO', M+3, 60);
+  const ativoData=[
+    ['Preço Atual',fmtUSD(a.price)], ['Market Cap','$'+fmtLg(a.mcap)],
+    ['Volume 24h','$'+fmtLg(a.vol)], ['Liquidez','$'+fmtLg(a.liq)],
+    ['Supply Total',fmtLg(a.supply)], ['Holders',a.holders.toLocaleString('pt-BR')],
+  ];
+  doc.setFontSize(7.5);
+  ativoData.forEach(([k,v],i)=>{
+    const col=i%3, row=Math.floor(i/3);
+    const x=M+4+col*60, y=67+row*8;
+    doc.setTextColor(140,140,140); doc.text(k+':',x,y);
+    doc.setTextColor(255,255,255); doc.text(v,x+25,y);
+  });
+
+  // Section: Parâmetros
+  doc.setFontSize(9); doc.setTextColor(212,175,55);
+  doc.text('PARÂMETROS DA SIMULAÇÃO', M, 92);
+  doc.setDrawColor(212,175,55,0.2); doc.line(M,94,W-M,94);
+  const params=[
+    ['Valor Inicial','$'+gv('sp-initial').toFixed(2)],
+    ['Aporte Mensal','$'+gv('sp-monthly').toFixed(2)],
+    ['Período',gv('sp-months')+' meses'],
+    ['Crescimento Mensal',gv('sp-growth')+'%/mês'],
+    ['Preço Inicial',fmtUSD(a.price)],
+    ['Reinvestimento',el('reinvest-tog').classList.contains('on')?'Sim':'Não'],
+  ];
+  doc.setFontSize(8);
+  params.forEach(([k,v],i)=>{
+    const x=i%2===0?M:M+90, y=101+Math.floor(i/2)*7;
+    doc.setTextColor(150,150,150); doc.text(k+':',x,y);
+    doc.setTextColor(255,255,255); doc.text(v,x+45,y);
+  });
+
+  // Section: Resultados
+  doc.setFillColor(8,18,8); doc.rect(M,122,W-M*2,45,'F');
+  doc.setFontSize(9); doc.setTextColor(0,255,156);
+  doc.text('RESULTADOS PROJETADOS', M+3, 130);
+  const results=[
+    ['Ativos Acumulados',fmtAtv(last.ativos)+' '+a.sym],
+    ['Preço Médio de Entrada',fmtUSD(last.invested/last.ativos)],
+    ['Valor do Portfólio','$'+last.value.toFixed(4)],
+    ['Total Investido','$'+last.invested.toFixed(2)],
+    ['Lucro Estimado','$'+last.profit.toFixed(2)],
+    ['Retorno Percentual','+'+(last.pct.toFixed(2))+'%'],
+  ];
+  doc.setFontSize(8);
+  results.forEach(([k,v],i)=>{
+    const x=i%2===0?M+3:M+93, y=139+Math.floor(i/2)*9;
+    doc.setTextColor(140,140,140); doc.text(k+':',x,y);
+    doc.setTextColor(0,220,140); doc.text(v,x+55,y);
+  });
+
+  // Section: Estratégias rápidas
+  doc.setFontSize(9); doc.setTextColor(212,175,55);
+  doc.text('COMPARAÇÃO DE ESTRATÉGIAS (com orçamento $'+gv('st-budget')+')', M, 175);
+  doc.line(M,177,W-M,177);
+  const budget=gv('st-budget'), proj=gv('st-proj');
+  const growth2=gv('sp-growth')/100;
+  const fp=a.price*Math.pow(1+growth2,proj);
+  const strats2=[0,12,36,60].map(pm=>{
+    if(pm===0){ const at=budget/a.price; return {name:'Imediata',at,fv:at*fp}; }
+    let tot=0; const m2=budget/pm;
+    for(let m=1;m<=pm;m++) tot+=m2/(a.price*Math.pow(1+growth2,m));
+    return {name:`${pm}x parcelas`,at:tot,fv:tot*fp};
+  });
+  doc.setFontSize(7.5);
+  strats2.forEach((s,i)=>{
+    const x=M+i*47, y=185;
+    doc.setFillColor(i===0?30:20,i===0?25:20,i===0?10:20);
+    doc.rect(x,178,43,15,'F');
+    doc.setTextColor(i===0?212:160,i===0?175:160,i===0?55:160);
+    doc.text(s.name,x+1,184);
+    doc.setTextColor(255,255,255);
+    doc.text(fmtAtv(s.at)+' '+a.sym,x+1,190);
+    doc.setTextColor(0,200,120);
+    doc.text('$'+fmtLg(s.fv),x+1,194);
+  });
+
+  // Section: Projeção — fórmula correta (mesma do runProj)
+  doc.setFontSize(9); doc.setTextColor(212,175,55);
+  doc.text('PROJEÇÃO PATRIMONIAL 10 ANOS', M, 205);
+  doc.line(M,207,W-M,207);
+  const pdfScens=[
+    {n:'Conservador (50%/ano)',  c:[100,116,100], ar:0.50},
+    {n:'Moderado (200%/ano)',    c:[212,175,55],  ar:2.00},
+    {n:'Agressivo (500%/ano)',   c:[0,220,140],   ar:5.00},
+  ];
+  pdfScens.forEach((s,i)=>{
+    const mr2 = Math.pow(1 + s.ar, 1/12) - 1;
+    let at2 = Math.max(gv('sp-initial'),1) / a.price;
+    for(let m=1;m<=120;m++){ const p=a.price*Math.pow(1+mr2,m); at2+=gv('sp-monthly')/p; }
+    const fv2 = at2 * (a.price * Math.pow(1+mr2, 120));
+    doc.setFontSize(7.5);
+    doc.setTextColor(s.c[0],s.c[1],s.c[2]); doc.text(s.n+':',M,215+i*7);
+    doc.setTextColor(255,255,255); doc.text('$'+fmtLg(fv2)+' ('+fmtAtv(at2)+' '+a.sym+')',M+55,215+i*7);
+  });
+
+  // Disclaimer
+  doc.setFontSize(6); doc.setTextColor(70,70,70);
+  const disclaimer='AVISO LEGAL: Esta é uma ferramenta educacional. Todas as projeções são cenários hipotéticos baseados em premissas matemáticas e NÃO constituem garantia de rentabilidade, promessa de lucro ou recomendação de investimento. Criptomoedas são ativos de alto risco e volatilidade. Resultados passados não garantem resultados futuros. Consulte um profissional financeiro certificado antes de tomar decisões de investimento. Verum Wallet não se responsabiliza por perdas financeiras decorrentes do uso desta ferramenta.';
+  const dLines=doc.splitTextToSize(disclaimer,W-M*2);
+  doc.text(dLines,M,258);
+
+  // Footer
+  doc.setFillColor(212,175,55); doc.rect(0,291,W,1.5,'F');
+  doc.setFontSize(7); doc.setTextColor(100,80,30);
+  doc.text('Verum Compound Engine — verum-wallet.com  |  Powered by Solana',W/2,288,{align:'center'});
+
+  doc.save(`verum-${a.sym.toLowerCase()}-simulacao.pdf`);
+}
+
+// ==========================================
+// SHARE WHATSAPP
+// ==========================================
+function shareWhatsApp(){
+  if(!selectedAtivo){ alert('Selecione um ativo primeiro.'); return; }
+  const a=ATIVOS.find(x=>x.id===selectedAtivo);
+  if(!simData.length) return;
+  const last=simData[simData.length-1];
+  const msg=encodeURIComponent(
+    `🚀 *Verum Compound Engine — Simulação ${a.name}*\n\n`+
+    `🪙 Ativo: *${a.name} (${a.sym})*\n`+
+    `💲 Preço atual: ${fmtUSD(a.price)}\n`+
+    `📊 Market Cap: $${fmtLg(a.mcap)}\n\n`+
+    `*Parâmetros:*\n`+
+    `💰 Inicial: $${gv('sp-initial')} | Mensal: $${gv('sp-monthly')}\n`+
+    `⏱️ Período: ${gv('sp-months')} meses | Crescimento: ${gv('sp-growth')}%/mês\n\n`+
+    `*Resultado Projetado:*\n`+
+    `🎯 ${fmtAtv(last.ativos)} ${a.sym} acumulados\n`+
+    `💎 Patrimônio: $${last.value.toFixed(4)}\n`+
+    `📈 Retorno: +${last.pct.toFixed(0)}%\n\n`+
+    `⚠️ Simulação hipotética. Não constitui recomendação de investimento.\n\n`+
+    `🔗 verum-compound-engine.vercel.app`
+  );
+  window.open('https://wa.me/?text='+msg,'_blank');
+}
+
+function exportCSV(){
+  if(!selectedAtivo||!simData.length){ alert('Selecione um ativo e execute a simulação.'); return; }
+  const a=ATIVOS.find(x=>x.id===selectedAtivo);
+  const hdr=`Ativo,${a.name} (${a.sym})\nPreço Inicial,${fmtUSD(a.price)}\nData,${new Date().toLocaleDateString('pt-BR')}\n\nMês,Preço,Ativos Comprados,Total Ativos,Valor Portfólio,Total Investido,Lucro,Retorno %\n`;
+  const rows=simData.map((d,i)=>{
+    const prev=i>0?simData[i-1].ativos:(gv('sp-initial')/a.price);
+    return `${d.month},${d.price.toFixed(8)},${(d.ativos-prev).toFixed(6)},${d.ativos.toFixed(6)},${d.value.toFixed(4)},${d.invested.toFixed(2)},${d.profit.toFixed(4)},${d.pct.toFixed(2)}`;
+  }).join('\n');
+  const blob=new Blob([hdr+rows],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a2=document.createElement('a'); a2.href=url; a2.download=`verum-${a.sym.toLowerCase()}.csv`; a2.click();
+}
+
+function copyLink(){
+  const a=selectedAtivo?ATIVOS.find(x=>x.id===selectedAtivo):null;
+  const params=new URLSearchParams({
+    ativo:selectedAtivo||'',
+    ia:gv('sp-initial'),mc:gv('sp-monthly'),
+    m:gv('sp-months'),mg:gv('sp-growth'),
+  });
+  navigator.clipboard.writeText(window.location.href.split('?')[0]+'?'+params).then(()=>{
+    el('li').textContent='✅'; el('ll').textContent='Copiado!';
+    setTimeout(()=>{ el('li').textContent='🔗'; el('ll').textContent='Link Único'; },3000);
+  });
+}
+
+// ==========================================
+// NAV
+// ==========================================
+function showSec(id,btn){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  el('sec-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(selectedAtivo){
+    if(id==='strategies') runStrat();
+    if(id==='community')  runComm();
+    if(id==='projection') runProj();
+    if(id==='export')     updateExport();
+  }
+}
+
+// ==========================================
+// INIT
+// ==========================================
+function init(){
+  if(typeof Chart==='undefined'){ setTimeout(init,100); return; }
+  renderSelector();
+  hideAllContent();
+}
+document.readyState==='loading' ? document.addEventListener('DOMContentLoaded',init) : init();
+
+// ==========================================
+// PWA — registra service worker (silencioso em file://)
+// ==========================================
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

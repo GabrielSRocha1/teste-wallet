@@ -1,50 +1,118 @@
-# Welcome to your Expo app 👋
+# 🚀 Verum Compound Engine
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Calculadora Avançada de Acumulação Crypto — Production-Grade**
 
-## Get started
+> Dashboard institucional para simulação de juros compostos, DCA, crescimento de comunidade e projeção patrimonial no ecossistema Solana.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## ✨ Funcionalidades
 
-2. Start the app
+| Módulo | Descrição |
+|--------|-----------|
+| 📊 Preços em Tempo Real | Bode Coin, Escoteiro Coin, Brutos Coin via DexScreener |
+| 🧮 Simulador de Acumulação | DCA com juros compostos, reinvestimento automático |
+| ⚖️ Comparação de Estratégias | Compra imediata vs 12/36/48/60 meses parcelado |
+| 👥 Crescimento da Comunidade | Pressão compradora, escassez, market cap |
+| 📅 Projeção de 10 Anos | Cenários conservador, moderado e agressivo |
+| 📤 Exportação | PDF premium, PNG, WhatsApp, link único |
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🛠️ Stack Técnico
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- **Framework:** Next.js 15 + TypeScript
+- **UI:** Tailwind CSS + Framer Motion
+- **Estado:** Zustand
+- **Gráficos:** Recharts + Chart.js
+- **Blockchain:** Solana Web3.js + Jupiter API + DexScreener
+- **Export:** jsPDF + html2canvas
+- **Deploy:** Vercel
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
-
-When you're ready, run:
+## 🚀 Setup Local
 
 ```bash
-npm run reset-project
+# 1. Clone e instale dependências
+npm install
+
+# 2. Configure variáveis de ambiente
+cp .env.example .env.local
+# Edite .env.local com seus valores
+
+# 3. Rode o servidor de desenvolvimento
+npm run dev
+
+# 4. Acesse http://localhost:3000
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 📁 Estrutura
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+src/
+├── app/
+│   ├── api/tokens/route.ts     # API de tokens
+│   ├── layout.tsx              # Layout raiz
+│   └── page.tsx                # Página principal
+├── components/
+│   ├── calculators/
+│   │   ├── AccumulationSimulator.tsx
+│   │   ├── StrategyComparison.tsx
+│   │   ├── CommunityGrowth.tsx
+│   │   └── TenYearProjection.tsx
+│   ├── TokenPriceCard.tsx
+│   └── ExportPanel.tsx
+├── hooks/
+│   └── useTokenData.ts
+├── services/
+│   └── tokenService.ts
+├── store/
+│   └── index.ts
+├── types/
+│   └── index.ts
+├── utils/
+│   └── financialCalculations.ts
+└── styles/
+    └── globals.css
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🌐 Deploy Vercel
 
-Join our community of developers creating universal apps.
+```bash
+# Instale Vercel CLI
+npm i -g vercel
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# Deploy
+vercel
+
+# Produção
+vercel --prod
+```
+
+Adicione as variáveis de ambiente no painel da Vercel em **Settings → Environment Variables**.
+
+---
+
+## 🔧 Integração com Tokens Reais
+
+1. Acesse [DexScreener](https://dexscreener.com) e encontre os endereços dos tokens
+2. Atualize `.env.local` com os endereços reais
+3. Atualize `src/services/tokenService.ts` com os endereços corretos
+4. O sistema buscará dados reais automaticamente
+
+---
+
+## ⚖️ Aviso Legal
+
+Esta ferramenta é educacional. Todas as projeções são cenários hipotéticos baseados em premissas matemáticas e **NÃO** constituem garantia de rentabilidade, promessa de lucro ou recomendação de investimento. Consulte um profissional financeiro certificado antes de investir.
+
+---
+
+## 📄 Licença
+
+Propriedade de **Verum Wallet** — Todos os direitos reservados.
